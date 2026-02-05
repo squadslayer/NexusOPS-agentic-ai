@@ -37,7 +37,7 @@ This diagram represents the **end-to-end agentic flow** followed by NexusOps for
 
 The following diagram shows how NexusOps is composed entirely of managed AWS services.
 
-![AWS Native Architecture](docs/images/nexusops-aws-native-architecture.png)
+![AWS Native Architecture](docs/images/nexusops-aws-architecture.png)
 
 ### Key Components
 
