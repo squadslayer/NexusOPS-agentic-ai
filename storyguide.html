@@ -1,0 +1,1434 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NexusOps — Operational Intelligence</title>
+    <meta name="description" content="NexusOps: Structured, evolving system intelligence for complex codebases." />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Rajdhani:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <style>
+        /* ═══════════════════════════════════════
+       TOKENS
+       ═══════════════════════════════════════ */
+        :root {
+            --base-dark: #0b0b0b;
+            --accent-amber: #FF9900;
+            --neutral-carbon: #2a2a2a;
+            --text-primary: #F2F2F2;
+            --text-secondary: rgba(255, 255, 255, 0.65);
+            --text-meta: rgba(255, 255, 255, 0.55);
+            --text-micro: rgba(255, 255, 255, 0.45);
+            --font-heading: 'Orbitron', sans-serif;
+            --font-body: 'Rajdhani', sans-serif;
+            --ease: cubic-bezier(0.4, 0, 0.2, 1);
+            --phase-problem: #FF9900;
+            --phase-capability: #7C4DFF;
+            --phase-architecture: #00BFA5;
+            --phase-deployment: #FF9900;
+        }
+
+        *,
+        *::before,
+        *::after {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            -webkit-font-smoothing: antialiased;
+            scroll-behavior: smooth;
+        }
+
+        body {
+            background: var(--base-dark);
+            color: var(--text-primary);
+            font-family: var(--font-body);
+            overflow-x: hidden;
+            line-height: 1.5;
+        }
+
+        /* ═══════════════════════════════════════
+       NAVBAR
+       ═══════════════════════════════════════ */
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 32px;
+            transition: background 0.4s var(--ease), backdrop-filter 0.4s var(--ease);
+        }
+
+        .navbar.scrolled {
+            background: rgba(11, 11, 11, 0.75);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .navbar-brand {
+            font-family: var(--font-heading);
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 3px;
+            color: var(--text-primary);
+            text-transform: uppercase;
+        }
+
+        .navbar-brand span {
+            color: var(--accent-amber);
+        }
+
+        .navbar-cta {
+            font-family: var(--font-heading);
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            text-decoration: none;
+            padding: 8px 16px;
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 4px;
+            transition: all 0.3s var(--ease);
+            text-transform: uppercase;
+        }
+
+        .navbar-cta:hover {
+            color: var(--accent-amber);
+            border-color: var(--accent-amber);
+        }
+
+        /* ═══════════════════════════════════════
+       SCROLL CONTAINER
+       ═══════════════════════════════════════ */
+        .scroll-container {
+            position: relative;
+            height: 500vh;
+        }
+
+        .sticky-viewport {
+            position: sticky;
+            top: 0;
+            height: 100vh;
+            width: 100%;
+            overflow: hidden;
+            background: var(--base-dark);
+        }
+
+        /* ═══════════════════════════════════════
+       FRAME IMAGES (replaces canvas)
+       ═══════════════════════════════════════ */
+        .frame-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 0;
+        }
+
+        .frame-img {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            transition: opacity 0.3s var(--ease);
+            will-change: opacity;
+        }
+
+        .frame-img.active {
+            opacity: 1;
+        }
+
+        /* ═══════════════════════════════════════
+       TRANSITION LAYER
+       ═══════════════════════════════════════ */
+        .transition-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* Overlay to hide Veo watermark (bottom-right) */
+        .transition-layer::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            right: 0;
+            width: 260px;
+            height: 90px;
+            background: url('frame/bottom%20right%20overlay.png') bottom right / cover no-repeat;
+            z-index: 6;
+            pointer-events: none;
+        }
+
+        .transition-webp {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease, transform 0.2s ease, filter 0.2s ease;
+            will-change: opacity, transform, filter;
+        }
+
+        .transition-webp.active {
+            opacity: 1;
+            transform: scale(1.003);
+            filter: contrast(1.02) brightness(1.03);
+        }
+
+        /* ═══════════════════════════════════════
+       HUD LAYER
+       ═══════════════════════════════════════ */
+        .hud-layer {
+            position: absolute;
+            inset: 0;
+            z-index: 10;
+            pointer-events: none;
+            overflow: hidden;
+            will-change: transform;
+        }
+
+        /* HUD Block (transition content) */
+        .hud-block {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transform: translateY(15px);
+            transition: opacity 0.5s var(--ease), transform 0.5s var(--ease);
+        }
+
+        .hud-block.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .hud-content {
+            position: absolute;
+            top: 80px;
+            left: 40px;
+            max-width: 480px;
+        }
+
+        .hud-label {
+            font-family: var(--font-heading);
+            font-size: 10px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            margin-bottom: 16px;
+            opacity: 0;
+            transform: translateY(15px);
+            transition: opacity 0.5s var(--ease) 0ms, transform 0.5s var(--ease) 0ms;
+        }
+
+        .hud-block.visible .hud-label {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .hud-accent-bar {
+            width: 32px;
+            height: 2px;
+            margin-bottom: 20px;
+            opacity: 0;
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: opacity 0.4s var(--ease) 50ms, transform 0.4s var(--ease) 50ms;
+        }
+
+        .hud-block.visible .hud-accent-bar {
+            opacity: 1;
+            transform: scaleX(1);
+        }
+
+        .hud-headline {
+            font-family: var(--font-heading);
+            font-size: clamp(20px, 2.5vw, 32px);
+            font-weight: 700;
+            line-height: 1.2;
+            letter-spacing: 1px;
+            color: var(--text-primary);
+            margin-bottom: 20px;
+            opacity: 0;
+            transform: translateY(15px);
+            transition: opacity 0.5s var(--ease) 50ms, transform 0.5s var(--ease) 50ms;
+        }
+
+        .hud-block.visible .hud-headline {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .hud-secondary {
+            font-family: var(--font-body);
+            font-size: clamp(13px, 1.2vw, 16px);
+            font-weight: 400;
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin-bottom: 24px;
+            opacity: 0;
+            transform: translateY(15px);
+            transition: opacity 0.5s var(--ease) 50ms, transform 0.5s var(--ease) 50ms;
+        }
+
+        .hud-block.visible .hud-secondary {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .hud-secondary span {
+            display: block;
+        }
+
+        .hud-divider {
+            width: 100%;
+            height: 1px;
+            background: rgba(255, 255, 255, 0.1);
+            margin-bottom: 16px;
+            opacity: 0;
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: opacity 0.4s var(--ease) 100ms, transform 0.4s var(--ease) 100ms;
+        }
+
+        .hud-block.visible .hud-divider {
+            opacity: 1;
+            transform: scaleX(1);
+        }
+
+        .hud-meta {
+            font-family: 'Courier New', 'Consolas', monospace;
+            font-size: clamp(10px, 0.9vw, 12px);
+            color: var(--text-meta);
+            line-height: 1.8;
+            letter-spacing: 0.5px;
+            opacity: 0;
+            transform: translateY(15px);
+            transition: opacity 0.5s var(--ease) 150ms, transform 0.5s var(--ease) 150ms;
+        }
+
+        .hud-block.visible .hud-meta {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .hud-meta span {
+            display: block;
+        }
+
+        .hud-micro {
+            position: absolute;
+            bottom: 60px;
+            left: 40px;
+            font-family: var(--font-body);
+            font-size: clamp(11px, 1vw, 13px);
+            font-weight: 300;
+            color: var(--text-micro);
+            letter-spacing: 1px;
+            opacity: 0;
+            transform: translateY(15px);
+            transition: opacity 0.5s var(--ease) 200ms, transform 0.5s var(--ease) 200ms;
+        }
+
+        .hud-block.visible .hud-micro {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Static frame labels */
+        .hud-static-block {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            opacity: 0;
+            transform: translateY(15px);
+            transition: opacity 0.5s var(--ease), transform 0.5s var(--ease);
+        }
+
+        .hud-static-block.visible {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .hud-static-content {
+            position: absolute;
+            bottom: 80px;
+            left: 40px;
+            max-width: 480px;
+        }
+
+        .hud-static-label {
+            font-family: var(--font-heading);
+            font-size: 10px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            color: var(--text-meta);
+            margin-bottom: 8px;
+        }
+
+        .hud-static-title {
+            font-family: var(--font-heading);
+            font-size: clamp(14px, 1.4vw, 18px);
+            font-weight: 600;
+            color: var(--text-primary);
+            letter-spacing: 1px;
+        }
+
+        /* Frame counter — dialogue box style */
+        .hud-frame-counter {
+            position: absolute;
+            bottom: 24px;
+            right: 24px;
+            font-family: var(--font-heading);
+            font-size: 10px;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            padding: 10px 20px;
+            background: radial-gradient(ellipse at center,
+                    rgba(20, 20, 20, 0.85) 0%,
+                    rgba(20, 20, 20, 0.6) 60%,
+                    rgba(20, 20, 20, 0) 100%);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 6px;
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+        }
+
+        /* ═══════════════════════════════════════
+       FRAME 7 GLOW REDUCTION
+       ═══════════════════════════════════════ */
+        .frame-img[data-frame="7"] {
+            filter: brightness(0.96) contrast(0.98);
+        }
+
+        /* ═══════════════════════════════════════
+       RADIAL LIGHT OVERLAY
+       ═══════════════════════════════════════ */
+        .radial-light {
+            position: absolute;
+            inset: 0;
+            z-index: 1;
+            pointer-events: none;
+            background: radial-gradient(circle at 50% 40%, rgba(255, 255, 255, 0.08), transparent 60%);
+            transition: background-position 0.2s ease;
+        }
+
+        /* ═══════════════════════════════════════
+       METADATA GRID OVERLAY
+       ═══════════════════════════════════════ */
+        .metadata-grid-overlay {
+            position: absolute;
+            right: 5vw;
+            top: 30vh;
+            display: grid;
+            gap: 8px;
+            font-family: var(--font-body);
+            font-size: 12px;
+            letter-spacing: 1px;
+            color: var(--text-meta);
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            z-index: 12;
+        }
+
+        .metadata-grid-overlay.active {
+            opacity: 0.7;
+            transform: translateY(0);
+        }
+
+        /* ═══════════════════════════════════════
+       QUERY FLOW (Retrieval Intent)
+       ═══════════════════════════════════════ */
+        .hud-query-flow {
+            font-family: 'Courier New', 'Consolas', monospace;
+            font-size: 13px;
+            margin-top: 12px;
+            opacity: 0.8;
+            line-height: 1.6;
+            color: var(--text-meta);
+        }
+
+        .hud-query-flow div {
+            display: block;
+        }
+
+        /* ═══════════════════════════════════════
+       CLOUD ARCHITECTURE TAGS
+       ═══════════════════════════════════════ */
+        .cloud-arch-tags {
+            position: absolute;
+            right: 4vw;
+            top: 45vh;
+            display: grid;
+            gap: 6px;
+            font-family: var(--font-body);
+            font-size: 12px;
+            letter-spacing: 1px;
+            color: var(--text-meta);
+            opacity: 0;
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            transform: translateY(15px);
+            z-index: 12;
+        }
+
+        .cloud-arch-tags.active {
+            opacity: 0.75;
+            transform: translateY(0);
+        }
+
+        /* ═══════════════════════════════════════
+       PHASE INDICATOR
+       ═══════════════════════════════════════ */
+        .phase-indicator {
+            position: fixed;
+            right: 2vw;
+            top: 30vh;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            font-family: var(--font-heading);
+            font-size: 9px;
+            letter-spacing: 2px;
+            color: var(--text-micro);
+            z-index: 55;
+            opacity: 0.4;
+            transition: opacity 0.3s ease;
+        }
+
+        .phase-indicator div {
+            transition: opacity 0.3s ease, color 0.3s ease;
+            opacity: 0.4;
+        }
+
+        .phase-indicator div.active {
+            opacity: 1;
+            color: var(--accent-amber);
+        }
+
+        /* ═══════════════════════════════════════
+       CLOSING BLOCK
+       ═══════════════════════════════════════ */
+        .closing-block {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 0.6s var(--ease);
+        }
+
+        .closing-block.visible {
+            opacity: 1;
+        }
+
+        .closing-inner {
+            max-width: 600px;
+            padding: 0 24px;
+        }
+
+        .closing-headline {
+            font-family: var(--font-heading);
+            font-size: clamp(36px, 5vw, 64px);
+            font-weight: 900;
+            letter-spacing: 4px;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--accent-amber) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 16px;
+        }
+
+        .closing-sub {
+            font-family: var(--font-body);
+            font-size: clamp(14px, 1.4vw, 18px);
+            font-weight: 400;
+            color: var(--text-secondary);
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+
+        .closing-tagline {
+            font-family: 'Courier New', monospace;
+            font-size: clamp(10px, 0.9vw, 12px);
+            color: var(--text-meta);
+            line-height: 1.8;
+            margin-bottom: 32px;
+        }
+
+        .closing-cta-row {
+            display: flex;
+            gap: 16px;
+            justify-content: center;
+            pointer-events: auto;
+        }
+
+        .cta-btn {
+            font-family: var(--font-heading);
+            font-size: 10px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            padding: 12px 24px;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+            background: transparent;
+            color: var(--text-secondary);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.3s var(--ease);
+        }
+
+        .cta-btn:hover {
+            color: var(--accent-amber);
+            border-color: var(--accent-amber);
+            background: rgba(255, 153, 0, 0.06);
+        }
+
+        .cta-btn.primary {
+            background: rgba(255, 153, 0, 0.1);
+            border-color: var(--accent-amber);
+            color: var(--accent-amber);
+        }
+
+        .cta-btn.primary:hover {
+            background: rgba(255, 153, 0, 0.2);
+        }
+
+        /* ═══════════════════════════════════════
+       SCROLL PROGRESS
+       ═══════════════════════════════════════ */
+        .scroll-progress {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            z-index: 60;
+            width: 0;
+            transition: width 0.05s linear;
+        }
+
+        /* ═══════════════════════════════════════
+       POST-SEQUENCE
+       ═══════════════════════════════════════ */
+        .post-sequence {
+            position: relative;
+            z-index: 20;
+            background: var(--base-dark);
+        }
+
+        .specs-grid {
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 100px 40px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 32px;
+        }
+
+        .spec-card {
+            padding: 32px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            border-radius: 8px;
+            background: rgba(255, 255, 255, 0.02);
+            transition: border-color 0.3s var(--ease);
+        }
+
+        .spec-card:hover {
+            border-color: rgba(255, 153, 0, 0.2);
+        }
+
+        .spec-icon {
+            font-size: 20px;
+            margin-bottom: 16px;
+        }
+
+        .spec-title {
+            font-family: var(--font-heading);
+            font-size: 11px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--text-primary);
+            margin-bottom: 8px;
+        }
+
+        .spec-desc {
+            font-family: var(--font-body);
+            font-size: 14px;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+
+        .footer {
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 40px;
+            text-align: center;
+        }
+
+        .footer-brand {
+            font-family: var(--font-heading);
+            font-size: 12px;
+            letter-spacing: 3px;
+            color: var(--text-meta);
+            margin-bottom: 8px;
+        }
+
+        .footer-sub {
+            font-family: var(--font-body);
+            font-size: 12px;
+            color: var(--text-micro);
+        }
+
+        /* ═══════════════════════════════════════
+       LOADING
+       ═══════════════════════════════════════ */
+        .loading-screen {
+            position: fixed;
+            inset: 0;
+            z-index: 100;
+            background: var(--base-dark);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            transition: opacity 0.6s var(--ease);
+        }
+
+        .loading-screen.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .loading-title {
+            font-family: var(--font-heading);
+            font-size: 14px;
+            letter-spacing: 4px;
+            color: var(--text-primary);
+            margin-bottom: 24px;
+        }
+
+        .loading-bar-track {
+            width: 200px;
+            height: 2px;
+            background: var(--neutral-carbon);
+            border-radius: 1px;
+            overflow: hidden;
+        }
+
+        .loading-bar-fill {
+            height: 100%;
+            background: var(--accent-amber);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .loading-percent {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: var(--text-meta);
+            margin-top: 12px;
+            letter-spacing: 1px;
+        }
+
+        /* ═══════════════════════════════════════
+       REDUCED MOTION
+       ═══════════════════════════════════════ */
+        @media (prefers-reduced-motion: reduce) {
+
+            *,
+            *::before,
+            *::after {
+                transition: none !important;
+                transform: none !important;
+            }
+        }
+
+        /* ═══════════════════════════════════════
+       RESPONSIVE
+       ═══════════════════════════════════════ */
+        @media (max-width: 768px) {
+            .navbar {
+                padding: 12px 20px;
+            }
+
+            .hud-content {
+                left: 20px;
+                top: 70px;
+                max-width: calc(100vw - 40px);
+            }
+
+            .hud-static-content {
+                left: 20px;
+                bottom: 70px;
+            }
+
+            .hud-micro {
+                left: 20px;
+                bottom: 40px;
+            }
+
+            .hud-frame-counter {
+                right: 20px;
+                bottom: 40px;
+            }
+
+            .specs-grid {
+                padding: 60px 20px;
+                gap: 20px;
+            }
+
+            .closing-cta-row {
+                flex-direction: column;
+                align-items: center;
+            }
+
+            .phase-indicator {
+                display: none;
+            }
+
+            .metadata-grid-overlay,
+            .cloud-arch-tags {
+                display: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- LOADING -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-title">NEXUSOPS</div>
+        <div class="loading-bar-track">
+            <div class="loading-bar-fill" id="loadingBar"></div>
+        </div>
+        <div class="loading-percent" id="loadingPercent">0%</div>
+    </div>
+
+    <!-- NAVBAR -->
+    <nav class="navbar" id="navbar">
+        <div class="navbar-brand">NEXUS<span>OPS</span></div>
+        <a href="#specs" class="navbar-cta">AI FOR BHARAT 2026</a>
+    </nav>
+
+    <!-- PHASE INDICATOR -->
+    <div class="phase-indicator" id="phaseIndicator">
+        <div data-phase="problem">PROBLEM</div>
+        <div data-phase="capability">AGENTIC LOOP</div>
+        <div data-phase="architecture">INFRASTRUCTURE</div>
+        <div data-phase="deployment">DEPLOYMENT</div>
+    </div>
+
+    <!-- SCROLL PROGRESS -->
+    <div class="scroll-progress" id="scrollProgress"></div>
+
+    <!-- MAIN SEQUENCE -->
+    <main>
+        <section class="scroll-container" id="scrollContainer">
+            <div class="sticky-viewport">
+
+                <!-- Static Frame Images (z:0) -->
+                <div class="frame-layer">
+                    <img class="frame-img active" data-frame="0" src="webp/frame%201.webp" alt="Frame 1" />
+                    <img class="frame-img" data-frame="1" src="webp/frame%202.webp" alt="Frame 2" />
+                    <img class="frame-img" data-frame="2" src="webp/frame%203.webp" alt="Frame 3" />
+                    <img class="frame-img" data-frame="3" src="webp/frame%204.webp" alt="Frame 4" />
+                    <img class="frame-img" data-frame="4" src="webp/frame%205.webp" alt="Frame 5" />
+                    <img class="frame-img" data-frame="5" src="webp/frame%206.webp" alt="Frame 6" />
+                    <img class="frame-img" data-frame="6" src="webp/frame%207.webp" alt="Frame 7" />
+                    <img class="frame-img" data-frame="7" src="webp/frame%208.webp" alt="Frame 8" />
+                    <img class="frame-img" data-frame="8" src="webp/frame%209.webp" alt="Frame 9" />
+                    <img class="frame-img" data-frame="9" src="webp/frame%2010.webp" alt="Frame 10" />
+                </div>
+
+                <!-- Radial Light Overlay (z:1) -->
+                <div class="radial-light" id="radialLight"></div>
+
+                <!-- Animated Transition WebPs (z:5) -->
+                <div class="transition-layer">
+                    <img class="transition-webp" data-transition="0" src="webp/frame%201-2.webp" alt="" />
+                    <img class="transition-webp" data-transition="1" src="webp/frame%202-3.webp" alt="" />
+                    <img class="transition-webp" data-transition="2" src="webp/frame%203-4.webp" alt="" />
+                    <img class="transition-webp" data-transition="3" src="webp/frame%204-5.webp" alt="" />
+                    <img class="transition-webp" data-transition="4" src="webp/frame%205-6.webp" alt="" />
+                    <img class="transition-webp" data-transition="5" src="webp/frame%206-7.webp" alt="" />
+                    <img class="transition-webp" data-transition="6" src="webp/frame%207-8.webp" alt="" />
+                    <img class="transition-webp" data-transition="7" src="webp/frame%208-9.webp" alt="" />
+                    <img class="transition-webp" data-transition="8" src="webp/frame%209-10.webp" alt="" />
+                </div>
+
+                <!-- HUD (z:10) -->
+                <div class="hud-layer">
+
+                    <!-- Static Frame Labels -->
+                    <div class="hud-static-block" data-frame-hud="0">
+                        <div class="hud-static-content">
+                            <div class="hud-static-label" style="color:var(--phase-problem)">SYSTEM COMPLEXITY</div>
+                            <div class="hud-static-title">India's digital systems are expanding rapidly</div>
+                        </div>
+                    </div>
+                    <div class="hud-static-block" data-frame-hud="1">
+                        <div class="hud-static-content">
+                            <div class="hud-static-label" style="color:var(--phase-problem)">FRAGMENTATION AT SCALE
+                            </div>
+                            <div class="hud-static-title">Knowledge is distributed across layers</div>
+                        </div>
+                    </div>
+                    <div class="hud-static-block" data-frame-hud="2">
+                        <div class="hud-static-content">
+                            <div class="hud-static-label" style="color:var(--phase-capability)">ASK</div>
+                            <div class="hud-static-title">Developer submits a structured query</div>
+                        </div>
+                    </div>
+                    <div class="hud-static-block" data-frame-hud="3">
+                        <div class="hud-static-content">
+                            <div class="hud-static-label" style="color:var(--phase-capability)">RETRIEVE</div>
+                            <div class="hud-static-title">Approved sources searched and cited</div>
+                        </div>
+                    </div>
+                    <div class="hud-static-block" data-frame-hud="4">
+                        <div class="hud-static-content">
+                            <div class="hud-static-label" style="color:var(--phase-capability)">REASON</div>
+                            <div class="hud-static-title">Bounded, single-step reasoning</div>
+                        </div>
+                    </div>
+                    <div class="hud-static-block" data-frame-hud="5">
+                        <div class="hud-static-content">
+                            <div class="hud-static-label" style="color:var(--phase-capability)">ACT</div>
+                            <div class="hud-static-title">Controlled execution with guardrails</div>
+                        </div>
+                    </div>
+                    <div class="hud-static-block" data-frame-hud="6">
+                        <div class="hud-static-content">
+                            <div class="hud-static-label" style="color:var(--phase-capability)">VERIFY</div>
+                            <div class="hud-static-title">Every response validated before delivery</div>
+                        </div>
+                    </div>
+                    <div class="hud-static-block" data-frame-hud="7">
+                        <div class="hud-static-content">
+                            <div class="hud-static-label" style="color:var(--phase-architecture)">AWS-NATIVE STACK</div>
+                            <div class="hud-static-title">Free Tier aligned. Cost-bounded.</div>
+                        </div>
+                    </div>
+                    <div class="hud-static-block" data-frame-hud="8">
+                        <div class="hud-static-content">
+                            <div class="hud-static-label" style="color:var(--phase-architecture)">OBSERVABILITY</div>
+                            <div class="hud-static-title">Full audit trail. Full visibility.</div>
+                        </div>
+                    </div>
+
+                    <!-- ══ TRANSITION HUDs ══ -->
+
+                    <!-- 1→2 -->
+                    <div class="hud-block" data-hud="0">
+                        <div class="hud-content">
+                            <div class="hud-label" style="color:var(--phase-problem)">01 / SYSTEM COMPLEXITY</div>
+                            <div class="hud-accent-bar" style="background:var(--phase-problem)"></div>
+                            <div class="hud-headline">Modern systems accumulate hidden context</div>
+                            <div class="hud-secondary">
+                                <span>Distributed services expand over time</span>
+                                <span>Ownership shifts across teams</span>
+                                <span>Dependencies multiply quietly</span>
+                            </div>
+                            <div class="hud-divider"></div>
+                            <div class="hud-meta">
+                                <span>Services: 42</span>
+                                <span>Repositories: 18</span>
+                                <span>Active Contributors: 27</span>
+                                <span>Last Major Refactor: 9 months ago</span>
+                            </div>
+                        </div>
+                        <div class="hud-micro">Context disperses as systems scale.</div>
+                    </div>
+
+                    <!-- 2→3 -->
+                    <div class="hud-block" data-hud="1">
+                        <div class="hud-content">
+                            <div class="hud-label" style="color:var(--phase-problem)">02 / CONTEXT DRIFT</div>
+                            <div class="hud-accent-bar" style="background:var(--phase-problem)"></div>
+                            <div class="hud-headline">Knowledge fragments across artifacts</div>
+                            <div class="hud-secondary">
+                                <span>Commits diverge from documentation</span>
+                                <span>Implicit dependencies remain untracked</span>
+                                <span>Institutional memory becomes tribal</span>
+                            </div>
+                            <div class="hud-divider"></div>
+                            <div class="hud-meta">
+                                <span>Untracked Dependencies: 13</span>
+                                <span>Stale Docs: 6</span>
+                                <span>Recent Commits: 124</span>
+                                <span>Ownership Changes: 3</span>
+                            </div>
+                        </div>
+                        <div class="hud-micro">Onboarding becomes reconstruction.</div>
+                    </div>
+
+                    <!-- 3→4 -->
+                    <div class="hud-block" data-hud="2">
+                        <div class="hud-content">
+                            <div class="hud-label" style="color:var(--phase-capability)">03 / ASK — QUERY PROCESSING
+                            </div>
+                            <div class="hud-accent-bar" style="background:var(--phase-capability)"></div>
+                            <div class="hud-headline">Developer submits a structured intent</div>
+                            <div class="hud-secondary">
+                                <span>Query validated for format and safety</span>
+                                <span>Unsafe content rejected with feedback</span>
+                                <span>Every query logged with identity</span>
+                            </div>
+                            <div class="hud-divider"></div>
+                            <div class="hud-meta">
+                                <span>Input: Natural language query</span>
+                                <span>Validation: Format + Safety check</span>
+                                <span>Identity: IAM-authenticated user</span>
+                                <span>Logging: CloudWatch + DynamoDB</span>
+                            </div>
+                        </div>
+                        <div class="hud-micro">Every interaction starts with a validated question.</div>
+                    </div>
+
+                    <!-- 4→5 -->
+                    <div class="hud-block" data-hud="3">
+                        <div class="hud-content">
+                            <div class="hud-label" style="color:var(--phase-capability)">04 / RETRIEVE — KNOWLEDGE
+                                GROUNDING</div>
+                            <div class="hud-accent-bar" style="background:var(--phase-capability)"></div>
+                            <div class="hud-headline">Only approved internal sources are searched</div>
+                            <div class="hud-secondary">
+                                <span>RAG from GitHub, Confluence, Jira, Slack, S3</span>
+                                <span>Source metadata returned for citation</span>
+                                <span>Confidence threshold enforced (≥ 0.7)</span>
+                            </div>
+                            <div class="hud-divider"></div>
+                            <div class="hud-meta">
+                                <span>Sources: Pre-approved repositories only</span>
+                                <span>Minimum Documents: 3</span>
+                                <span>Confidence Threshold: 0.7</span>
+                                <span>Ranking: Similarity + Recency</span>
+                            </div>
+                        </div>
+                        <div class="hud-micro">No external data. No hallucinated sources.</div>
+                    </div>
+
+                    <!-- 5→6 -->
+                    <div class="hud-block" data-hud="4">
+                        <div class="hud-content">
+                            <div class="hud-label" style="color:var(--phase-capability)">05 / REASON — BOUNDED INFERENCE
+                            </div>
+                            <div class="hud-accent-bar" style="background:var(--phase-capability)"></div>
+                            <div class="hud-headline">Single model invocation. Token-capped.</div>
+                            <div class="hud-secondary">
+                                <span>One Amazon Bedrock base model call per query</span>
+                                <span>Citations, assumptions, and limitations included</span>
+                                <span>No agent chaining. No multi-step planning.</span>
+                            </div>
+                            <div class="hud-divider"></div>
+                            <div class="hud-meta">
+                                <span>Model: Amazon Bedrock (Direct Invocation)</span>
+                                <span>Max Invocations: 1 per query</span>
+                                <span>Output: Answer + Citations + Assumptions</span>
+                                <span>Constraints: Token limits enforced</span>
+                            </div>
+                        </div>
+                        <div class="hud-micro">Predictable cost. Explainable output.</div>
+                    </div>
+
+                    <!-- 6→7 -->
+                    <div class="hud-block" data-hud="5">
+                        <div class="hud-content">
+                            <div class="hud-label" style="color:var(--phase-capability)">06 / ACT — CONTROLLED EXECUTION
+                            </div>
+                            <div class="hud-accent-bar" style="background:var(--phase-capability)"></div>
+                            <div class="hud-headline">Only allowlisted actions may execute</div>
+                            <div class="hud-secondary">
+                                <span>Pre-approved Lambda functions only</span>
+                                <span>Risk classification: low / medium / high</span>
+                                <span>Human approval required for high-risk actions</span>
+                            </div>
+                            <div class="hud-divider"></div>
+                            <div class="hud-meta">
+                                <span>Registry: Allowlisted Lambda ARNs</span>
+                                <span>Low-Risk: Auto-approved</span>
+                                <span>High-Risk: SNS → Human approval</span>
+                                <span>Timeout: 15-minute approval window</span>
+                            </div>
+                        </div>
+                        <div class="hud-micro">No autonomous infrastructure changes.</div>
+                    </div>
+
+                    <!-- 7→8 -->
+                    <div class="hud-block" data-hud="6">
+                        <div class="hud-content">
+                            <div class="hud-label" style="color:var(--phase-capability)">07 / VERIFY — GUARDRAILS
+                                ENFORCED</div>
+                            <div class="hud-accent-bar" style="background:var(--phase-capability)"></div>
+                            <div class="hud-headline">Every response validated before delivery</div>
+                            <div class="hud-secondary">
+                                <span>Action results validated</span>
+                                <span>Citation accuracy checked</span>
+                                <span>IAM policy + Bedrock Guardrails enforced</span>
+                            </div>
+                            <div class="hud-divider"></div>
+                            <div class="hud-meta">
+                                <span>Validation: Action + Citation + Compliance</span>
+                                <span>Rollback: Idempotent actions reversed on failure</span>
+                                <span>Guardrails: Bedrock + IAM + Cost caps</span>
+                                <span>Audit: Immutable log entry created</span>
+                            </div>
+                        </div>
+                        <div class="hud-micro">No response bypasses verification.</div>
+                    </div>
+
+                    <!-- 8→9 -->
+                    <div class="hud-block" data-hud="7">
+                        <div class="hud-content">
+                            <div class="hud-label" style="color:var(--phase-architecture)">08 / AWS-NATIVE ARCHITECTURE
+                            </div>
+                            <div class="hud-accent-bar" style="background:var(--phase-architecture)"></div>
+                            <div class="hud-headline">Built entirely on managed AWS services</div>
+                            <div class="hud-secondary">
+                                <span>Free Tier aligned by default</span>
+                                <span>Per-request cost tracking</span>
+                                <span>Automatic throttling at cost thresholds</span>
+                            </div>
+                            <div class="hud-divider"></div>
+                            <div class="hud-meta">
+                                <span>Compute: AWS Lambda</span>
+                                <span>Storage: Amazon S3 + DynamoDB</span>
+                                <span>AI: Amazon Bedrock (Direct Invocation)</span>
+                                <span>Entry: API Gateway + IAM</span>
+                                <span>Monitoring: CloudWatch + CloudTrail</span>
+                            </div>
+                        </div>
+                        <div class="hud-micro">Cost-bounded. Predictable. Enterprise-grade.</div>
+                    </div>
+
+                    <!-- 9→10 -->
+                    <div class="hud-block" data-hud="8">
+                        <div class="hud-content">
+                            <div class="hud-label" style="color:var(--phase-architecture)">09 / ENTERPRISE OBSERVABILITY
+                            </div>
+                            <div class="hud-accent-bar" style="background:var(--phase-architecture)"></div>
+                            <div class="hud-headline">Full audit trail. Full visibility.</div>
+                            <div class="hud-secondary">
+                                <span>CloudWatch logs for every operation</span>
+                                <span>CloudTrail audit records</span>
+                                <span>IAM role-based access with enterprise SSO</span>
+                            </div>
+                            <div class="hud-divider"></div>
+                            <div class="hud-meta">
+                                <span>Logging: CloudWatch Logs & Metrics</span>
+                                <span>Audit: CloudTrail + DynamoDB trace</span>
+                                <span>Identity: IAM Identity Center + SSO</span>
+                                <span>Compliance: Tamper-evident audit format</span>
+                                <span>Cost: Per-request usage tracking</span>
+                            </div>
+                        </div>
+                        <div class="hud-micro">Every action traceable. Every cost visible.</div>
+                    </div>
+
+                    <!-- METADATA GRID OVERLAY (Frame 7→8) -->
+                    <div class="metadata-grid-overlay" data-range="0.80-0.84">
+                        <div>▹ Agentic Loop State</div>
+                        <div>▹ Audit Trail</div>
+                        <div>▹ Cost Metrics</div>
+                        <div>▹ Token Usage</div>
+                    </div>
+
+                    <!-- CLOUD ARCHITECTURE TAGS (Frame 8→9) -->
+                    <div class="cloud-arch-tags" data-range="0.88-0.94">
+                        <div>▹ S3 Document Store</div>
+                        <div>▹ DynamoDB State + Metadata</div>
+                        <div>▹ IAM Scoped Access</div>
+                        <div>▹ Encryption Enabled</div>
+                    </div>
+
+                    <!-- CLOSING -->
+                    <div class="closing-block" id="closingBlock">
+                        <div class="closing-inner">
+                            <div class="closing-headline">NexusOps</div>
+                            <div class="closing-sub">AWS-native agentic intelligence with guardrails for complex
+                                codebases.</div>
+                            <div class="closing-tagline">
+                                Ask. Retrieve. Reason. Act. Verify.<br />
+                                Bounded execution. Auditable outcomes.
+                            </div>
+                            <div class="closing-cta-row">
+                                <a href="#specs" class="cta-btn primary">Explore Architecture</a>
+                                <a href="#" class="cta-btn">Request Early Access</a>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Frame Counter -->
+                    <div class="hud-frame-counter" id="frameCounter">FRAME 01 / 10</div>
+
+                </div><!-- /hud-layer -->
+            </div><!-- /sticky-viewport -->
+        </section>
+
+        <!-- POST SEQUENCE -->
+        <section class="post-sequence" id="specs">
+            <div class="specs-grid">
+                <div class="spec-card">
+                    <div class="spec-icon">🔁</div>
+                    <div class="spec-title">Agentic Loop</div>
+                    <div class="spec-desc">Ask → Retrieve → Reason → Act → Verify. Bounded, single-step reasoning with
+                        explicit controls.</div>
+                </div>
+                <div class="spec-card">
+                    <div class="spec-icon">📚</div>
+                    <div class="spec-title">Knowledge Grounding</div>
+                    <div class="spec-desc">RAG from approved internal sources only. Mandatory citations with confidence
+                        scoring.</div>
+                </div>
+                <div class="spec-card">
+                    <div class="spec-icon">🛡️</div>
+                    <div class="spec-title">Controlled Actions</div>
+                    <div class="spec-desc">Allowlisted Lambda execution. Human-in-the-loop approval for high-risk
+                        actions.</div>
+                </div>
+                <div class="spec-card">
+                    <div class="spec-icon">💰</div>
+                    <div class="spec-title">Cost-Bounded</div>
+                    <div class="spec-desc">Free Tier aligned. Token limits enforced. Per-request cost tracking and
+                        automatic throttling.</div>
+                </div>
+                <div class="spec-card">
+                    <div class="spec-icon">☁️</div>
+                    <div class="spec-title">AWS Native</div>
+                    <div class="spec-desc">S3, DynamoDB, Lambda, Bedrock, CloudWatch. Zero external dependencies.</div>
+                </div>
+                <div class="spec-card">
+                    <div class="spec-icon">🔒</div>
+                    <div class="spec-title">Audit & Governance</div>
+                    <div class="spec-desc">Immutable logs. IAM least privilege. CloudTrail audit. Enterprise SSO.</div>
+                </div>
+            </div>
+            <footer class="footer">
+                <div class="footer-brand">NEXUSOPS</div>
+                <div class="footer-sub">AWS-Native Agentic Intelligence — AI for Bharat 2026</div>
+            </footer>
+        </section>
+    </main>
+
+    <!-- SCREEN READER -->
+    <div style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);">
+        <h1>NexusOps — Operational Intelligence</h1>
+        <p>Structured, evolving system intelligence for complex codebases.</p>
+    </div>
+
+    <script>
+        /* ═══════════════════════════════════════
+           SCROLL MAP
+           ═══════════════════════════════════════ */
+        const FRAME_RANGES = [
+            { start: 0.00, end: 0.08 },
+            { start: 0.12, end: 0.20 },
+            { start: 0.24, end: 0.32 },
+            { start: 0.36, end: 0.44 },
+            { start: 0.48, end: 0.56 },
+            { start: 0.60, end: 0.68 },
+            { start: 0.72, end: 0.80 },
+            { start: 0.84, end: 0.88 },
+            { start: 0.90, end: 0.94 },
+            { start: 0.96, end: 1.00 },
+        ];
+
+        const TRANSITION_RANGES = [
+            { start: 0.08, end: 0.12 },
+            { start: 0.20, end: 0.24 },
+            { start: 0.32, end: 0.36 },
+            { start: 0.44, end: 0.48 },
+            { start: 0.56, end: 0.60 },
+            { start: 0.68, end: 0.72 },
+            { start: 0.80, end: 0.84 },
+            { start: 0.88, end: 0.90 },
+            { start: 0.94, end: 0.96 },
+        ];
+
+        const PHASE_COLORS = [
+            '#FF9900', '#FF9900',
+            '#7C4DFF', '#7C4DFF', '#7C4DFF', '#7C4DFF', '#7C4DFF',
+            '#00BFA5', '#00BFA5',
+            '#FF9900',
+        ];
+
+        /* ═══════════════════════════════════════
+           DOM REFS
+           ═══════════════════════════════════════ */
+        const frameImgs = document.querySelectorAll('.frame-img');
+        const transitionWebps = document.querySelectorAll('.transition-webp');
+        const hudBlocks = document.querySelectorAll('.hud-block');
+        const hudStaticBlocks = document.querySelectorAll('.hud-static-block');
+        const closingBlock = document.getElementById('closingBlock');
+        const frameCounter = document.getElementById('frameCounter');
+        const scrollProgress = document.getElementById('scrollProgress');
+        const navbar = document.getElementById('navbar');
+        const loadingBar = document.getElementById('loadingBar');
+        const loadingPercent = document.getElementById('loadingPercent');
+        const loadingScreen = document.getElementById('loadingScreen');
+
+        /* ═══════════════════════════════════════
+           PRELOAD
+           ═══════════════════════════════════════ */
+        let loaded = 0;
+        const total = frameImgs.length;
+
+        function onImgReady() {
+            loaded++;
+            const pct = Math.round((loaded / total) * 100);
+            loadingBar.style.width = pct + '%';
+            loadingPercent.textContent = pct + '%';
+            if (loaded >= total) {
+                setTimeout(() => {
+                    loadingScreen.classList.add('hidden');
+                    setTimeout(() => loadingScreen.remove(), 600);
+                }, 300);
+            }
+        }
+
+        frameImgs.forEach(img => {
+            if (img.complete && img.naturalWidth > 0) {
+                onImgReady();
+            } else {
+                img.addEventListener('load', onImgReady);
+                img.addEventListener('error', onImgReady);
+            }
+        });
+
+        /* ═══════════════════════════════════════
+           SCROLL ENGINE
+           ═══════════════════════════════════════ */
+        let currentFrameIdx = 0;
+        let ticking = false;
+
+        function getProgress() {
+            const container = document.getElementById('scrollContainer');
+            const rect = container.getBoundingClientRect();
+            const scrollH = container.offsetHeight - window.innerHeight;
+            if (scrollH <= 0) return 0;
+            return Math.max(0, Math.min(1, -rect.top / scrollH));
+        }
+
+        function getFrameIndex(p) {
+            for (let i = TRANSITION_RANGES.length - 1; i >= 0; i--) {
+                if (p >= TRANSITION_RANGES[i].start && p < TRANSITION_RANGES[i].end) return i;
+            }
+            for (let i = FRAME_RANGES.length - 1; i >= 0; i--) {
+                if (p >= FRAME_RANGES[i].start) return i;
+            }
+            return 0;
+        }
+
+        function update() {
+            const p = getProgress();
+            const fi = getFrameIndex(p);
+
+            // Update active frame image
+            if (fi !== currentFrameIdx) {
+                frameImgs[currentFrameIdx]?.classList.remove('active');
+                frameImgs[fi]?.classList.add('active');
+                currentFrameIdx = fi;
+            }
+
+            // Frame counter
+            frameCounter.textContent = 'FRAME ' + String(fi + 1).padStart(2, '0') + ' / 10';
+
+            // Transition WebPs
+            let inTransition = false;
+            transitionWebps.forEach((el, i) => {
+                const r = TRANSITION_RANGES[i];
+                const active = p >= r.start && p < r.end;
+                el.classList.toggle('active', active);
+                if (active) inTransition = true;
+            });
+
+            // HUD transition blocks
+            hudBlocks.forEach((el, i) => {
+                const r = TRANSITION_RANGES[i];
+                el.classList.toggle('visible', p >= r.start && p < r.end);
+            });
+
+            // Static frame labels (hide during transitions and on frame 10)
+            hudStaticBlocks.forEach((el, i) => {
+                const r = FRAME_RANGES[i];
+                if (!r || i === 9) { el.classList.remove('visible'); return; }
+                const visible = p >= r.start && p < r.end && !inTransition;
+                el.classList.toggle('visible', visible);
+            });
+
+            // Closing
+            closingBlock.classList.toggle('visible', p >= 0.96);
+
+            // Progress bar
+            scrollProgress.style.width = (p * 100) + '%';
+            scrollProgress.style.background = PHASE_COLORS[fi] || '#FF9900';
+
+            // Navbar
+            navbar.classList.toggle('scrolled', p > 0.02);
+
+            // HUD Parallax depth (0.95x scroll speed)
+            const hudLayer = document.querySelector('.hud-layer');
+            hudLayer.style.transform = `translateY(${p * -20}px)`;
+
+            // Radial light shift
+            const radial = document.getElementById('radialLight');
+            if (radial) {
+                const lightX = 50 + (p * 5);
+                const lightY = 40 + (p * 3);
+                radial.style.background = `radial-gradient(circle at ${lightX}% ${lightY}%, rgba(255,255,255,0.08), transparent 60%)`;
+            }
+
+            // Metadata grid + cloud tags activation
+            document.querySelectorAll('.metadata-grid-overlay, .cloud-arch-tags').forEach(el => {
+                const [start, end] = el.dataset.range.split('-').map(Number);
+                el.classList.toggle('active', p >= start && p <= end);
+            });
+
+            // Phase indicator
+            let phase = '';
+            if (p < 0.24) phase = 'problem';
+            else if (p < 0.84) phase = 'capability';
+            else if (p < 0.96) phase = 'architecture';
+            else phase = 'deployment';
+            document.querySelectorAll('.phase-indicator div').forEach(el => {
+                el.classList.toggle('active', el.dataset.phase === phase);
+            });
+
+            ticking = false;
+        }
+
+        function onScroll() {
+            if (!ticking) { ticking = true; requestAnimationFrame(update); }
+        }
+
+        window.addEventListener('scroll', onScroll, { passive: true });
+        window.addEventListener('resize', () => { requestAnimationFrame(update); });
+        update();
+    </script>
+</body>
+
+</html>
