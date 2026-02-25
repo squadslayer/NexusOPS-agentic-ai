@@ -2,11 +2,15 @@
 
 This application is strictly designed to simulate AWS API Gateway behavior locally,
 allowing development and testing without deploying to AWS every time.
+
+All responses are governed by StandardResponseEnvelope with strict error masking.
 """
 
 from flask import Flask
 from bff.routes import execution, auth, repo
 from bff import config
+from bff.middleware import register_error_handlers, govenance_error_handler, generate_execution_id
+from bff.utils import create_success_response
 
 
 def create_app():
@@ -23,6 +27,9 @@ def create_app():
     app.register_blueprint(auth.bp)
     app.register_blueprint(repo.bp)
     
+    # Register global error handlers (govenance rules)
+    register_error_handlers(app)
+    
     return app
 
 
@@ -31,14 +38,18 @@ app = create_app()
 
 
 @app.route('/health', methods=['GET'])
+@govenance_error_handler
 def health_check():
     """Health check endpoint to verify the API is running."""
-    return {
-        'status': 'healthy',
-        'service': 'NexusOps BFF',
-        'environment': config.CURRENT_ENV,
-        'auth_bypass': config.AUTH_BYPASS
-    }, 200
+    response = create_success_response(
+        data={
+            'service': 'NexusOps BFF',
+            'environment': config.CURRENT_ENV,
+            'auth_bypass': config.AUTH_BYPASS
+        },
+        execution_id=generate_execution_id()
+    )
+    return response, 200
 
 
 if __name__ == '__main__':

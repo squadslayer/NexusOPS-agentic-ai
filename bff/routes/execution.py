@@ -1,6 +1,8 @@
 """Execution routes for triggering workflows and operations."""
 
 from flask import Blueprint, request, jsonify
+from bff.middleware import govenance_error_handler, generate_execution_id
+from bff.utils import create_success_response, create_error_response
 
 
 # Create blueprint
@@ -8,6 +10,7 @@ bp = Blueprint('executions', __name__, url_prefix='/executions')
 
 
 @bp.route('/start', methods=['POST'])
+@govenance_error_handler
 def start_execution():
     """
     POST /executions/start
@@ -15,18 +18,22 @@ def start_execution():
     Trigger the start of a new execution workflow.
     
     Returns:
-        dict: JSON response with status and route info
+        StandardResponseEnvelope: JSON response with execution status
     """
-    return jsonify({
-        'status': 'ok',
-        'route': 'execution_start',
-        'method': 'POST',
-        'endpoint': '/executions/start',
-        'message': 'Execution workflow started successfully'
-    }), 202
+    execution_id = generate_execution_id()
+    response = create_success_response(
+        data={
+            'execution_id': execution_id,
+            'status': 'started',
+            'message': 'Execution workflow started successfully'
+        },
+        execution_id=execution_id
+    )
+    return response, 202
 
 
 @bp.route('/<id>', methods=['GET'])
+@govenance_error_handler
 def get_execution(id):
     """
     GET /executions/{id}
@@ -37,13 +44,16 @@ def get_execution(id):
         id (str): The execution ID
     
     Returns:
-        dict: JSON response with execution status and details
+        StandardResponseEnvelope: Execution status and details
     """
-    return jsonify({
-        'status': 'ok',
-        'route': 'get_execution',
-        'method': 'GET',
-        'endpoint': f'/executions/{id}',
-        'execution_id': id,
-        'message': 'Execution details retrieved successfully'
-    }), 200
+    execution_id = generate_execution_id()
+    response = create_success_response(
+        data={
+            'execution_id': id,
+            'status': 'completed',
+            'message': 'Execution details retrieved successfully',
+            'stage': 'ASK'
+        },
+        execution_id=execution_id
+    )
+    return response, 200
