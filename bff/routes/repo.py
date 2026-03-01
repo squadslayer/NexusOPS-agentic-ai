@@ -1,7 +1,7 @@
 """Repository management routes."""
 
 from flask import Blueprint, request, jsonify
-from bff.middleware import govenance_error_handler, generate_execution_id
+from bff.middleware import governance_error_handler, generate_execution_id
 from bff.utils import create_success_response, create_error_response
 
 
@@ -10,7 +10,7 @@ bp = Blueprint('repos', __name__, url_prefix='/repos')
 
 
 @bp.route('/connect', methods=['POST'])
-@govenance_error_handler
+@governance_error_handler
 def connect_repo():
     """
     POST /repos/connect

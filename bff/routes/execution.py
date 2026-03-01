@@ -1,7 +1,7 @@
 """Execution routes for triggering workflows and operations."""
 
 from flask import Blueprint, request, jsonify
-from bff.middleware import govenance_error_handler, generate_execution_id
+from bff.middleware import governance_error_handler, generate_execution_id
 from bff.utils import create_success_response, create_error_response
 
 
@@ -10,7 +10,7 @@ bp = Blueprint('executions', __name__, url_prefix='/executions')
 
 
 @bp.route('/start', methods=['POST'])
-@govenance_error_handler
+@governance_error_handler
 def start_execution():
     """
     POST /executions/start
@@ -33,7 +33,7 @@ def start_execution():
 
 
 @bp.route('/<id>', methods=['GET'])
-@govenance_error_handler
+@governance_error_handler
 def get_execution(id):
     """
     GET /executions/{id}

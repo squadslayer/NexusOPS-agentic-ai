@@ -40,7 +40,7 @@ def format_response_for_api(response: StandardResponseEnvelope, status_code: int
     return jsonify(response.to_dict()), status_code
 
 
-def govenance_error_handler(f):
+def governance_error_handler(f):
     """
     Decorator that wraps all route handlers with strict error governance.
     
@@ -51,7 +51,7 @@ def govenance_error_handler(f):
     
     Usage:
         @app.route('/api/endpoint')
-        @govenance_error_handler
+        @governance_error_handler
         def my_endpoint():
             return create_success_response(
                 data={'result': 'success'},

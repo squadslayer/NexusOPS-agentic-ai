@@ -9,7 +9,7 @@ All responses are governed by StandardResponseEnvelope with strict error masking
 from flask import Flask
 from bff.routes import execution, auth, repo
 from bff import config
-from bff.middleware import register_error_handlers, govenance_error_handler, generate_execution_id
+from bff.middleware import register_error_handlers, governance_error_handler, generate_execution_id
 from bff.utils import create_success_response
 
 
@@ -27,7 +27,7 @@ def create_app():
     app.register_blueprint(auth.bp)
     app.register_blueprint(repo.bp)
     
-    # Register global error handlers (govenance rules)
+    # Register global error handlers (governance rules)
     register_error_handlers(app)
     
     return app
@@ -38,7 +38,7 @@ app = create_app()
 
 
 @app.route('/health', methods=['GET'])
-@govenance_error_handler
+@governance_error_handler
 def health_check():
     """Health check endpoint to verify the API is running."""
     response = create_success_response(

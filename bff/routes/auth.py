@@ -2,7 +2,7 @@
 
 from flask import Blueprint, request, jsonify
 from bff import config
-from bff.middleware import govenance_error_handler, generate_execution_id
+from bff.middleware import governance_error_handler, generate_execution_id
 from bff.utils import create_success_response, create_error_response
 
 
@@ -11,7 +11,7 @@ bp = Blueprint('auth', __name__, url_prefix='/auth')
 
 
 @bp.route('/login', methods=['POST'])
-@govenance_error_handler
+@governance_error_handler
 def login():
     """
     POST /auth/login
