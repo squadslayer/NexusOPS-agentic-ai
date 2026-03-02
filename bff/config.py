@@ -65,8 +65,20 @@ VERSION = "2.0.0"
 # AWS Region
 AWS_REGION = os.getenv('AWS_REGION', 'us-east-1')
 
+# JWT Configuration
+JWT_SECRET = os.getenv('JWT_SECRET', 'your-secret-key-change-in-production')
+JWT_ALGORITHM = 'HS256'
+JWT_EXPIRATION_HOURS = 24
+
 # GitHub settings
 GITHUB_API_BASE_URL = "https://api.github.com"
+GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID', 'dev-client-id')
+GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET', 'dev-client-secret')
+GITHUB_REDIRECT_URI = os.getenv('GITHUB_REDIRECT_URI', 'http://localhost:5000/auth/github/callback')
+
+# Token Encryption Configuration
+ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY', 'your-32-byte-encryption-key-change-production')
+ENCRYPTION_ALGORITHM = 'AES'
 
 # Orchestrator service settings
 ORCHESTRATOR_SERVICE_URL = os.getenv('ORCHESTRATOR_SERVICE_URL', 'http://localhost:5001')

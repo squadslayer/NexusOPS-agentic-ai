@@ -10,10 +10,14 @@ from .error_handler import (
     generate_execution_id,
     format_response_for_api
 )
+from .auth_middleware import (
+    require_auth
+)
 
 __all__ = [
     'governance_error_handler',
     'register_error_handlers',
     'generate_execution_id',
-    'format_response_for_api'
+    'format_response_for_api',
+    'require_auth'
 ]
