@@ -1,0 +1,17 @@
+{
+  "name": "nexusops-orchestrator",
+  "version": "0.1.0",
+  "description": "NexusOPS Agentic AI Orchestrator — deterministic lifecycle engine",
+  "main": "dist/handler.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "ts-node src/handler.ts",
+    "watch": "tsc -w"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.3.0",
+    "ts-node": "^10.9.0",
+    "@types/node": "^20.0.0"
+  }
+}
