@@ -110,11 +110,11 @@ export async function handler(
 }
 
 /**
- * Direct invocation for Phase-3 validation.
+ * Direct invocation for Phase-4 validation.
  * Run with: npm start
  */
 async function main() {
-    console.log("=== NexusOPS Orchestrator — Phase-3 Validation ===\n");
+    console.log("=== NexusOPS Orchestrator — Phase-4 Validation ===\n");
 
     const request: ExecutionRequest = {
         execution_id: "exec-001",
@@ -122,9 +122,15 @@ async function main() {
         repo_id: "repo-alpha",
     };
 
-    console.log("Step 1: Trigger execution (ASK stage)...\n");
-    const result = await handler(request);
-    console.log("\nResult:", JSON.stringify(result, null, 2));
+    console.log("Step 1: Trigger execution (ASK → RETRIEVE)...\n");
+    const r1 = await handler(request);
+    console.log("\n[ASK Result]:", JSON.stringify(r1, null, 2));
+
+    console.log("\n--- Step 2: Continue execution (RETRIEVE → REASON)... ---\n");
+    const r2 = await handler(request);
+    console.log("\n[RETRIEVE Result]:", JSON.stringify(r2, null, 2));
+
+    console.log("\n=== Phase-4 Validation Complete ===");
 }
 
 main().catch(console.error);

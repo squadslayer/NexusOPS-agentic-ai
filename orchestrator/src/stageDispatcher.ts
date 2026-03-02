@@ -18,6 +18,7 @@ import { Execution } from "./models/execution";
 import { StageResult } from "./models/stageResult";
 import { InvalidStage } from "./utils/errors";
 import { askStage } from "./stages/askStage";
+import { retrieveStage } from "./stages/retrieveStage";
 
 /**
  * Dispatches an execution to the appropriate stage handler.
@@ -31,7 +32,7 @@ export async function dispatchStage(execution: Readonly<Execution>): Promise<Sta
             return askStage(execution);
 
         case Stage.RETRIEVE:
-            return placeholderStage(execution, Stage.REASON, "RETRIEVE");
+            return retrieveStage(execution);
 
         case Stage.REASON:
             return placeholderStage(execution, Stage.CONSTRAINT, "REASON");
