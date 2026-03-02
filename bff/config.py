@@ -82,6 +82,7 @@ ENCRYPTION_ALGORITHM = 'AES'
 
 # Orchestrator service settings
 ORCHESTRATOR_SERVICE_URL = os.getenv('ORCHESTRATOR_SERVICE_URL', 'http://localhost:5001')
+ORCHESTRATOR_LAMBDA_NAME = os.getenv('ORCHESTRATOR_LAMBDA_NAME', 'NexusOps-Orchestrator-Phase1')
 
 # Logging configuration
 LOGGING_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'

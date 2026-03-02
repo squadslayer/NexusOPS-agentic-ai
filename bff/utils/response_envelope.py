@@ -149,15 +149,39 @@ def create_error_response(
     )
 
 
+# ---------------------------------------------------------------------------
+# Specific AWS error-code → consumer-safe message mapping  (Track 6)
+# ---------------------------------------------------------------------------
+_AWS_ERROR_CODE_MAP: dict[str, tuple[str, str]] = {
+    # DynamoDB
+    "ConditionalCheckFailedException": ("Concurrency conflict — please retry", "CONFLICT_ERROR"),
+    "ProvisionedThroughputExceededException": ("Service capacity exceeded — please retry later", "CAPACITY_ERROR"),
+    "ResourceNotFoundException": ("Requested resource not found", "NOT_FOUND"),
+    "ItemCollectionSizeLimitExceededException": ("Data limit exceeded", "LIMIT_ERROR"),
+    "TransactionConflictException": ("Concurrency conflict — please retry", "CONFLICT_ERROR"),
+    # General AWS / SDK
+    "ThrottlingException": ("Rate limited — please slow down", "RATE_LIMIT_ERROR"),
+    "AccessDeniedException": ("Access denied", "AUTH_ERROR"),
+    "UnrecognizedClientException": ("Access denied", "AUTH_ERROR"),
+    "ValidationException": ("Invalid request parameters", "VALIDATION_ERROR"),
+    # Lambda
+    "ResourceConflictException": ("Service busy — please retry", "CONFLICT_ERROR"),
+    "ServiceException": ("Service unavailable", "SERVICE_ERROR"),
+    "TooManyRequestsException": ("Rate limited — please slow down", "RATE_LIMIT_ERROR"),
+}
+
+
 def mask_aws_error(error: Exception) -> tuple[str, str]:
     """
     Mask internal AWS errors into safe, generic messages.
     
     GOVERNANCE RULE: No AWS error leakage.
-    - DynamoDB errors → "Database operation failed"
-    - IAM errors → "Access denied"
-    - Lambda errors → "Service unavailable"
-    - Internal errors → "Internal server error"
+    
+    Resolution order:
+      1. Specific AWS error-code mapping (e.g. ConditionalCheckFailedException
+         → "Concurrency conflict").
+      2. Keyword-based fallback (DynamoDB, IAM, Lambda, service).
+      3. Generic "Internal server error".
     
     Args:
         error (Exception): The original exception
@@ -165,8 +189,19 @@ def mask_aws_error(error: Exception) -> tuple[str, str]:
     Returns:
         tuple: (safe_message, error_code)
     """
-    error_str = str(error).lower()
+    # --- 1. Try specific error-code mapping (ClientError from botocore) ----
+    if hasattr(error, "response"):
+        aws_code = error.response.get("Error", {}).get("Code", "")
+        if aws_code in _AWS_ERROR_CODE_MAP:
+            return _AWS_ERROR_CODE_MAP[aws_code]
+
+    # Also check the exception class name directly
     error_type = type(error).__name__
+    if error_type in _AWS_ERROR_CODE_MAP:
+        return _AWS_ERROR_CODE_MAP[error_type]
+
+    # --- 2. Keyword-based fallback -----------------------------------------
+    error_str = str(error).lower()
     
     # Check for DynamoDB errors
     if 'dynamodb' in error_str or 'botocore' in error_str:
@@ -180,5 +215,5 @@ def mask_aws_error(error: Exception) -> tuple[str, str]:
     if 'lambda' in error_str or 'service' in error_str:
         return ("Service unavailable", "SERVICE_ERROR")
     
-    # Default to generic error
+    # --- 3. Default to generic error ---------------------------------------
     return ("Internal server error", "INTERNAL_ERROR")

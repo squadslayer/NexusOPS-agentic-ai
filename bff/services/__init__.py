@@ -11,6 +11,7 @@ from .github_service import (
     github_service,
     token_store
 )
+from .orchestrator_client import invoke_orchestrator
 
 __all__ = [
     'GitHubIntegrationService',
@@ -18,5 +19,6 @@ __all__ = [
     'GitHubTokenStore',
     'TokenEncryptionService',
     'github_service',
-    'token_store'
+    'token_store',
+    'invoke_orchestrator',
 ]

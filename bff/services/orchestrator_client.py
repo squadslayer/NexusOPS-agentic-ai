@@ -1,1 +1,283 @@
-"""Client for communicating with the Orchestrator service."""
+"""Client for invoking the Phase-1 Orchestrator Lambda.
+
+Track 5: Orchestrator Invocation Client.
+This module provides a strict, governance-compliant client for triggering the
+orchestrator Lambda. It enforces:
+  - Minimal payload (execution_id, user_id, repo_id, input only)
+  - 29-second timeout (API Gateway limit)
+  - Exactly one retry for transient network errors
+  - Response normalization via Track 2 Standard Response Envelope
+"""
+
+import json
+import logging
+import uuid
+from typing import Any, Dict, Optional
+
+import boto3
+from botocore.config import Config as BotoConfig
+from botocore.exceptions import (
+    ClientError,
+    ConnectionError,
+    ReadTimeoutError,
+)
+
+from bff import config
+from bff.utils.response_envelope import (
+    create_error_response,
+    create_success_response,
+    mask_aws_error,
+    StandardResponseEnvelope,
+)
+
+logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Boto3 client configuration — 29 s timeout, 1 retry
+# ---------------------------------------------------------------------------
+_LAMBDA_BOTO_CONFIG = BotoConfig(
+    region_name=config.AWS_REGION,
+    connect_timeout=5,
+    read_timeout=29,
+    retries={"max_attempts": 1, "mode": "standard"},
+)
+
+# Transient error codes eligible for the single retry
+_TRANSIENT_ERROR_CODES = frozenset({
+    "ServiceException",
+    "TooManyRequestsException",
+    "EC2ThrottledException",
+})
+
+# ---------------------------------------------------------------------------
+# Payload allow-list — nothing else may leave this client
+# ---------------------------------------------------------------------------
+_ALLOWED_PAYLOAD_KEYS = frozenset({"execution_id", "user_id", "repo_id", "input"})
+
+
+def _build_lambda_client():
+    """Create a boto3 Lambda client with governance-compliant configuration.
+
+    Returns:
+        boto3.client: Configured Lambda client.
+    """
+    return boto3.client("lambda", config=_LAMBDA_BOTO_CONFIG)
+
+
+def _sanitize_payload(
+    execution_id: str,
+    user_id: str,
+    repo_id: str,
+    user_input: Optional[Dict[str, Any]] = None,
+) -> Dict[str, Any]:
+    """Build and validate the outbound Lambda payload.
+
+    GOVERNANCE: Only the four allowed keys are emitted.  No reasoning data,
+    lifecycle state, or stage manipulation is ever included.
+
+    Args:
+        execution_id: Unique execution tracking ID.
+        user_id: Authenticated user ID (from Track 3).
+        repo_id: Verified repository ID (from Track 4).
+        user_input: Optional free-form input dict forwarded to the orchestrator.
+
+    Returns:
+        Dict containing exactly {execution_id, user_id, repo_id, input}.
+
+    Raises:
+        ValueError: If any required field is empty.
+    """
+    if not execution_id or not user_id or not repo_id:
+        raise ValueError("execution_id, user_id, and repo_id are all required")
+
+    payload: Dict[str, Any] = {
+        "execution_id": str(execution_id),
+        "user_id": str(user_id),
+        "repo_id": str(repo_id),
+        "input": user_input if user_input is not None else {},
+    }
+
+    # Hard-guard: strip anything that is not in the allow-list
+    return {k: v for k, v in payload.items() if k in _ALLOWED_PAYLOAD_KEYS}
+
+
+def _normalize_lambda_response(
+    raw_response: Dict[str, Any],
+    execution_id: str,
+) -> StandardResponseEnvelope:
+    """Wrap the raw Lambda response in the Track 2 Standard Response Envelope.
+
+    The meta object always carries ``stage: "ASK"`` per governance rules.
+
+    Args:
+        raw_response: The parsed JSON body returned by the Lambda.
+        execution_id: Execution tracking ID.
+
+    Returns:
+        StandardResponseEnvelope with ``meta.stage == "ASK"``.
+    """
+    return create_success_response(
+        data=raw_response,
+        execution_id=execution_id,
+        stage="ASK",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Public API
+# ---------------------------------------------------------------------------
+
+def invoke_orchestrator(
+    user_id: str,
+    repo_id: str,
+    user_input: Optional[Dict[str, Any]] = None,
+) -> StandardResponseEnvelope:
+    """Invoke the Phase-1 Orchestrator Lambda.
+
+    Invocation rules
+    ~~~~~~~~~~~~~~~~
+    * Payload is restricted to ``{execution_id, user_id, repo_id, input}``.
+    * Timeout is capped at **29 seconds** (API Gateway ceiling).
+    * Exactly **one** automatic retry is attempted for transient network errors.
+    * The response is normalised using the Track 2 Standard Response Envelope
+      with ``meta.stage`` always set to ``"ASK"``.
+
+    Args:
+        user_id: Authenticated user ID injected by the Track 3 Auth Middleware.
+        repo_id: Verified repository ID obtained via the Track 4 GitHub Service.
+        user_input: Optional free-form dict forwarded as the ``input`` field.
+
+    Returns:
+        StandardResponseEnvelope wrapping the orchestrator's response.
+    """
+    execution_id = str(uuid.uuid4())
+    lambda_function_name = config.ORCHESTRATOR_LAMBDA_NAME
+
+    # 1. Build the governance-compliant payload
+    payload = _sanitize_payload(execution_id, user_id, repo_id, user_input)
+
+    logger.info(
+        "Invoking orchestrator Lambda %s (execution_id: %s, user_id: %s, repo_id: %s)",
+        lambda_function_name,
+        execution_id,
+        user_id,
+        repo_id,
+    )
+
+    try:
+        client = _build_lambda_client()
+
+        # 2. Synchronous invocation
+        response = client.invoke(
+            FunctionName=lambda_function_name,
+            InvocationType="RequestResponse",
+            Payload=json.dumps(payload).encode("utf-8"),
+        )
+
+        # 3. Read and parse the response payload
+        status_code = response.get("StatusCode", 0)
+        function_error = response.get("FunctionError")
+        raw_payload = response["Payload"].read().decode("utf-8")
+
+        if function_error:
+            logger.error(
+                "Orchestrator Lambda returned FunctionError=%s (execution_id: %s): %s",
+                function_error,
+                execution_id,
+                raw_payload[:500],
+            )
+            return create_error_response(
+                error_message="Orchestrator execution failed",
+                error_code="ORCHESTRATOR_ERROR",
+                execution_id=execution_id,
+                stage="ASK",
+            )
+
+        if status_code not in range(200, 300):
+            logger.error(
+                "Orchestrator Lambda returned HTTP %s (execution_id: %s)",
+                status_code,
+                execution_id,
+            )
+            return create_error_response(
+                error_message="Orchestrator returned an unexpected status",
+                error_code="ORCHESTRATOR_ERROR",
+                execution_id=execution_id,
+                stage="ASK",
+            )
+
+        # Parse the Lambda JSON body
+        try:
+            parsed_body = json.loads(raw_payload) if raw_payload else {}
+        except json.JSONDecodeError:
+            logger.warning(
+                "Non-JSON response from orchestrator (execution_id: %s), wrapping raw",
+                execution_id,
+            )
+            parsed_body = {"raw_response": raw_payload}
+
+        # 4. Normalize into Track 2 envelope
+        logger.info(
+            "Orchestrator invoked successfully (execution_id: %s)", execution_id
+        )
+        return _normalize_lambda_response(parsed_body, execution_id)
+
+    except (ConnectionError, ReadTimeoutError) as exc:
+        # Transient network errors — the boto retry config handles the single
+        # automatic retry.  If we still land here, all retries were exhausted.
+        logger.error(
+            "Transient network error invoking orchestrator (execution_id: %s): %s",
+            execution_id,
+            str(exc),
+        )
+        safe_msg, err_code = mask_aws_error(exc)
+        return create_error_response(
+            error_message=safe_msg,
+            error_code=err_code,
+            execution_id=execution_id,
+            stage="ASK",
+        )
+
+    except ClientError as exc:
+        error_code = exc.response["Error"]["Code"]
+        logger.error(
+            "AWS ClientError %s invoking orchestrator (execution_id: %s): %s",
+            error_code,
+            execution_id,
+            str(exc),
+        )
+        safe_msg, err_code = mask_aws_error(exc)
+        return create_error_response(
+            error_message=safe_msg,
+            error_code=err_code,
+            execution_id=execution_id,
+            stage="ASK",
+        )
+
+    except ValueError as exc:
+        # Payload validation failure
+        logger.error(
+            "Payload validation error (execution_id: %s): %s",
+            execution_id,
+            str(exc),
+        )
+        return create_error_response(
+            error_message="Invalid invocation parameters",
+            error_code="VALIDATION_ERROR",
+            execution_id=execution_id,
+            stage="ASK",
+        )
+
+    except Exception as exc:
+        logger.error(
+            "Unexpected error invoking orchestrator (execution_id: %s): %s",
+            execution_id,
+            str(exc),
+        )
+        safe_msg, err_code = mask_aws_error(exc)
+        return create_error_response(
+            error_message=safe_msg,
+            error_code=err_code,
+            execution_id=execution_id,
+            stage="ASK",
+        )
