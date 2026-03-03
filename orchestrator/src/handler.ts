@@ -16,9 +16,11 @@
 
 import { Execution, ExecutionRequest, ExecutionStatus } from "./models/execution";
 import { Stage, isValidTransition } from "./models/stages";
+import { StageResult } from "./models/stageResult";
 import { LocalMemoryRepository } from "./services/executionRepository";
 import { LoggingService } from "./services/loggingService";
 import { dispatchStage } from "./stageDispatcher";
+import { markExpired } from "./services/approvalRepository";
 import { successResponse, errorResponse, OrchestratorResponse } from "./utils/response";
 import { OrchestratorError, InvalidStageTransition } from "./utils/errors";
 
@@ -78,8 +80,20 @@ export async function handler(
         const updated = await repository.updateExecutionConditional(
             execution.execution_id,
             execution.version,
-            { stage: result.nextStage, status: newStatus }
+            { stage: result.nextStage, status: newStatus, input: result.output as Record<string, unknown> }
         );
+
+        // ── ORPHAN APPROVAL PREVENTION ──
+        // If transitioning to ACT or FAILED, ensure no PENDING approval record is left behind.
+        if (updated.stage === Stage.ACT || updated.stage === Stage.FAILED) {
+            const approvalId = (execution.input as Record<string, any>)?.approval_id ||
+                (result.output as Record<string, any>)?.approval_id;
+            if (approvalId) {
+                await markExpired(approvalId).catch(err =>
+                    console.warn(`[ORPHAN CLEANUP FAILED] approval_id: ${approvalId}`, err)
+                );
+            }
+        }
 
         // ── NON-BLOCKING LOGGING ──
         // Async errors remain observable but never halt execution.
@@ -110,11 +124,11 @@ export async function handler(
 }
 
 /**
- * Direct invocation for Phase-5 validation.
+ * Direct invocation for Phase-7 validation.
  * Run with: npm start
  */
 async function main() {
-    console.log("=== NexusOPS Orchestrator — Phase-5 Validation ===\n");
+    console.log("=== NexusOPS Orchestrator — Phase-7 Validation ===\n");
 
     const request: ExecutionRequest = {
         execution_id: "exec-001",
@@ -134,7 +148,34 @@ async function main() {
     const r3 = await handler(request);
     console.log("\n[REASON Result]:", JSON.stringify(r3, null, 2));
 
-    console.log("\n=== Phase-5 Validation Complete ===");
+    console.log("\n--- Step 4: CONSTRAINT → APPROVAL_PENDING... ---\n");
+    const r4 = await handler(request);
+    console.log("\n[CONSTRAINT Result]:", JSON.stringify(r4, null, 2));
+
+    console.log("\n--- Step 5: APPROVAL_PENDING (awaiting / auto-advance)... ---\n");
+    const r5 = await handler(request);
+    console.log("\n[APPROVAL Result]:", JSON.stringify(r5, null, 2));
+
+    // ── Test approval decision handler ──
+    const { handleApprovalDecision } = await import("./approvalHandler");
+
+    // Extract approval_id from the approval stage output
+    const approvalOutput = (r5 as any)?.data?.stageOutput;
+    const approvalId = approvalOutput?.approval_id;
+
+    if (approvalId) {
+        console.log(`\n--- Step 6: APPROVE decision for ${approvalId}... ---\n`);
+        const decision = await handleApprovalDecision({
+            approval_id: approvalId,
+            decision: "APPROVED",
+        });
+        console.log("\n[Decision Result]:", JSON.stringify(decision, null, 2));
+    } else {
+        console.log("\n--- Step 5 auto-advanced (no approval required) ---");
+    }
+
+    console.log("\n=== Phase-7 Validation Complete ===");
 }
 
 main().catch(console.error);
+
