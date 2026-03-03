@@ -19,11 +19,17 @@ import { StageResult } from "./models/stageResult";
 import { InvalidStage } from "./utils/errors";
 import { askStage } from "./stages/askStage";
 import { retrieveStage } from "./stages/retrieveStage";
+import { reasonStage } from "./stages/reasonStage";
 
 /**
  * Dispatches an execution to the appropriate stage handler.
  * Returns the result with the determined next stage.
  *
+ * 
+ * 
+ * 
+ * 
+
  * Throws InvalidStage if the execution is in an unknown stage.
  */
 export async function dispatchStage(execution: Readonly<Execution>): Promise<StageResult> {
@@ -35,7 +41,7 @@ export async function dispatchStage(execution: Readonly<Execution>): Promise<Sta
             return retrieveStage(execution);
 
         case Stage.REASON:
-            return placeholderStage(execution, Stage.CONSTRAINT, "REASON");
+            return reasonStage(execution);
 
         case Stage.CONSTRAINT:
             return placeholderStage(execution, Stage.APPROVAL_PENDING, "CONSTRAINT");
