@@ -10,7 +10,10 @@ Track 5 + Track 6 integration:
     → repo verification (Track 4) → orchestrator invocation (Track 5)
 """
 
+import boto3
 from flask import Blueprint, request, g
+from botocore.exceptions import ClientError
+from bff import config
 from bff.middleware import (
     governance_error_handler,
     generate_execution_id,
@@ -66,19 +69,32 @@ def start_execution():
     user_input = body.get("input", {})
 
     # ------------------------------------------------------------------
-    # Verify the repo belongs to the authenticated user (Track 4)
+    # Verify the user has PULL access to the repo (Track 4 / Phase 11)
     # ------------------------------------------------------------------
     user_id = g.user_id
 
-    stored_token = github_service.token_store.get_token(user_id, repo_id)
-    if stored_token is None:
+    access_token = github_service.token_store.get_any_token_for_user(user_id)
+    if not access_token:
         error_resp = create_error_response(
-            error_message="Repository not linked to your account",
+            error_message="No GitHub account linked. Please connect a repository first.",
             error_code="AUTH_ERROR",
             execution_id=execution_id,
             stage="ASK",
         )
-        return format_response_for_api(error_resp, 403)
+        return error_resp, 403
+
+    is_accessible, repo_info = github_service.oauth_service.validate_repository_access(
+        access_token, repo_id
+    )
+
+    if not is_accessible:
+        error_resp = create_error_response(
+            error_message="You do not have pull access to this repository.",
+            error_code="AUTH_ERROR",
+            execution_id=execution_id,
+            stage="ASK",
+        )
+        return error_resp, 403
 
     # ------------------------------------------------------------------
     # Invoke the Orchestrator Lambda (Track 5)
@@ -100,30 +116,59 @@ def start_execution():
 def get_execution(id):
     """GET /executions/{id}
 
-    Retrieve the status and details of an execution by ID.
+    Retrieve the status and details of an execution by querying the DynamoDB ExecutionRecords table.
 
     REQUIRES: Valid JWT token in Authorization header
-    Format: Authorization: Bearer {token}
-
-    User context injected by @require_auth decorator:
-    - g.user_id: Authenticated user's UUID
-    - g.user_email: Authenticated user's email
-
-    Args:
-        id (str): The execution ID
-
-    Returns:
-        StandardResponseEnvelope: Execution status and details
     """
     execution_id = generate_execution_id()
-    response = create_success_response(
-        data={
-            'execution_id': id,
-            'status': 'completed',
-            'message': 'Execution details retrieved successfully',
-            'stage': 'ASK',
-            'requested_by': g.user_id
-        },
-        execution_id=execution_id
-    )
-    return response, 200
+    user_id = g.user_id
+    
+    try:
+        dynamodb = boto3.resource(
+            "dynamodb",
+            region_name=config.AWS_REGION,
+            endpoint_url=config.DYNAMODB_ENDPOINT if config.DYNAMODB_ENDPOINT else None,
+        )
+        table = dynamodb.Table("ExecutionRecords")
+        
+        response = table.get_item(Key={"execution_id": id})
+        item = response.get("Item")
+        
+        if not item:
+            return create_error_response(
+                error_message="Execution record not found",
+                error_code="NOT_FOUND",
+                execution_id=execution_id,
+            ), 404
+            
+        # Optional: ensure the user requesting the record owns it
+        if item.get("user_id") != user_id:
+            return create_error_response(
+                error_message="Unauthorized access to execution record",
+                error_code="AUTH_ERROR",
+                execution_id=execution_id,
+            ), 403
+            
+        return create_success_response(
+            data={
+                "execution_id": item.get("execution_id"),
+                "user_id": item.get("user_id"),
+                "repo_id": item.get("repo_id"),
+                "stage": item.get("stage"),
+                "status": item.get("status"),
+                "created_at": item.get("created_at"),
+                "updated_at": item.get("updated_at")
+            },
+            execution_id=execution_id,
+            stage=item.get("stage")
+        ), 200
+        
+    except ClientError as e:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"DynamoDB error querying execution {id}: {str(e)}")
+        return create_error_response(
+            error_message="Database error occurred",
+            error_code="INTERNAL_ERROR",
+            execution_id=execution_id,
+        ), 500

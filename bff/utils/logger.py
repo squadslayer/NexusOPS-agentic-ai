@@ -17,8 +17,7 @@ from datetime import datetime, timezone
 from functools import wraps
 
 from flask import request, g
-
-from bff.middleware.error_handler import generate_execution_id
+import uuid
 
 logger = logging.getLogger("bff.audit")
 
@@ -114,7 +113,7 @@ def audit_log(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         start = time.perf_counter()
-        execution_id = getattr(g, "execution_id", generate_execution_id())
+        execution_id = getattr(g, "execution_id", str(uuid.uuid4()))
 
         result = f(*args, **kwargs)
 

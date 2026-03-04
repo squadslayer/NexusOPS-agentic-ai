@@ -76,7 +76,7 @@ function resolveMode(): RetrievalMode {
  *   6. Store chunks in ContextChunks (DynamoDB or in-memory) with 24h TTL
  *   7. Return chunk references + metrics
  */
-export async function retrieveContext(query: string): Promise<RetrievalResult> {
+export async function retrieveContext(query: string, repoId: string): Promise<RetrievalResult> {
     const mode = resolveMode();
     const startTime = Date.now();
 
@@ -86,13 +86,13 @@ export async function retrieveContext(query: string): Promise<RetrievalResult> {
 
     switch (mode) {
         case "bedrock":
-            rawChunks = await bedrockRetrieve(query);
+            rawChunks = await bedrockRetrieve(query, repoId);
             break;
         case "s3":
-            rawChunks = await s3Retrieve(query);
+            rawChunks = await s3Retrieve(query, repoId);
             break;
         default:
-            rawChunks = await mockRetrieve(query);
+            rawChunks = await mockRetrieve(query, repoId);
             break;
     }
 
@@ -133,6 +133,7 @@ export async function retrieveContext(query: string): Promise<RetrievalResult> {
     console.info(JSON.stringify({
         event: "RETRIEVAL_COMPLETE",
         mode,
+        repo_id: repoId,
         query,
         chunks: chunkRefs.length,
         latency_ms: latencyMs,
@@ -148,9 +149,10 @@ export async function retrieveContext(query: string): Promise<RetrievalResult> {
 // ── BEDROCK ADAPTER ──────────────────────────────────────────────
 
 async function bedrockRetrieve(
-    query: string
+    query: string,
+    repoId: string
 ): Promise<Array<{ content: string; source: string; score: number }>> {
-    console.log(`[RETRIEVAL] Calling Bedrock KB: ${knowledgeBaseId}`);
+    console.log(`[RETRIEVAL] Calling Bedrock KB: ${knowledgeBaseId} for repo: ${repoId}`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), RETRIEVAL_TIMEOUT_MS);
@@ -160,6 +162,7 @@ async function bedrockRetrieve(
             new RetrieveCommand({
                 knowledgeBaseId: knowledgeBaseId!,
                 retrievalQuery: { text: query },
+                // Note: Bedrock filtering by repoId would be applied here in future updates
             }),
             { abortSignal: controller.signal }
         );
@@ -179,9 +182,10 @@ async function bedrockRetrieve(
 // ── S3 ADAPTER ───────────────────────────────────────────────────
 
 async function s3Retrieve(
-    _query: string
+    _query: string,
+    repoId: string
 ): Promise<Array<{ content: string; source: string; score: number }>> {
-    console.log(`[RETRIEVAL] Fetching documents from S3: ${s3Bucket}`);
+    console.log(`[RETRIEVAL] Fetching documents from S3: ${s3Bucket} for repo: ${repoId}`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), RETRIEVAL_TIMEOUT_MS);
@@ -234,13 +238,14 @@ async function streamToString(stream: Readable): Promise<string> {
 // ── MOCK ADAPTER ─────────────────────────────────────────────────
 
 async function mockRetrieve(
-    query: string
+    query: string,
+    repoId: string
 ): Promise<Array<{ content: string; source: string; score: number }>> {
-    console.log(`[RETRIEVAL] Using MOCK retrieval (no KB_ID or S3_BUCKET configured)`);
+    console.log(`[RETRIEVAL] Using MOCK retrieval for repo: ${repoId}`);
 
     return [
         {
-            content: `Relevant context for query: "${query}" — Infrastructure provisioning best practices for cloud-native deployments.`,
+            content: `Relevant context from repo ${repoId} for query: "${query}" — Infrastructure provisioning best practices for cloud-native deployments.`,
             source: "infra-guide.pdf",
             score: 0.95,
         },

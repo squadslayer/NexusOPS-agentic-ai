@@ -166,7 +166,14 @@ class GitHubOAuthService:
             
             if response.status_code == 200:
                 repo_info = response.json()
-                logger.info(f"Repository access verified: {owner}/{repo}")
+                permissions = repo_info.get("permissions", {})
+                
+                # Verify pull (read) access at minimum
+                if not permissions.get("pull", False):
+                    logger.warning(f"User lacks pull permission to {owner}/{repo}")
+                    return False, repo_info
+                    
+                logger.info(f"Repository access verified (pull access): {owner}/{repo}")
                 return True, repo_info
             elif response.status_code == 404:
                 logger.warning(f"Repository not found: {owner}/{repo}")
@@ -215,6 +222,28 @@ class GitHubOAuthService:
         
         except Exception as e:
             logger.error(f"Error retrieving token scopes: {str(e)}")
+            raise
+            
+    def get_user_repos(self, access_token: str) -> list:
+        """
+        Get all repositories accessible to the user (owned, member, collaborator).
+        """
+        try:
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/vnd.github.v3+json'
+            }
+            # affiliation parameter is critical for including organization and collaborator repos
+            url = f"{self.api_base}/user/repos?affiliation=owner,collaborator,organization_member&per_page=100"
+            response = requests.get(url, headers=headers, timeout=10)
+            
+            if response.status_code == 200:
+                return response.json()
+            else:
+                logger.warning(f"Failed to fetch user repos: {response.status_code}")
+                return []
+        except Exception as e:
+            logger.error(f"Error fetching user repos: {str(e)}")
             raise
 
 
@@ -325,6 +354,33 @@ class GitHubTokenStore:
         
         except Exception as e:
             logger.error(f"Error retrieving GitHub token: {str(e)}")
+            raise
+            
+    def get_any_token_for_user(self, user_id: str) -> Optional[str]:
+        """
+        Retrieve ANY active token for the user to make user-level profile API calls.
+        Uses a DynamoDB Query on the partition key.
+        """
+        try:
+            from boto3.dynamodb.conditions import Key
+            response = self.table.query(
+                KeyConditionExpression=Key('user_id').eq(user_id),
+                Limit=1
+            )
+            
+            items = response.get('Items', [])
+            if not items:
+                logger.debug(f"No tokens found for user {user_id}")
+                return None
+                
+            encrypted_token = items[0].get('encrypted_token')
+            if not encrypted_token:
+                return None
+                
+            return self.encryption_service.decrypt_token(encrypted_token)
+            
+        except Exception as e:
+            logger.error(f"Error querying ANY token for user {user_id}: {str(e)}")
             raise
     
     def check_repo_linked_to_other_user(self, repo_url: str, current_user_id: str) -> bool:
@@ -443,6 +499,17 @@ class GitHubIntegrationService:
         except Exception as e:
             logger.error(f"GitHub integration failed: {str(e)}")
             raise
+
+    def get_user_repos(self, user_id: str) -> list:
+        """
+        Fetch the list of repositories available to the user.
+        Uses any existing valid stored token for that user.
+        """
+        access_token = self.token_store.get_any_token_for_user(user_id)
+        if not access_token:
+            raise ValueError("No GitHub token found for user. Please connect a repository first to authorize NexusOPS.")
+        
+        return self.oauth_service.get_user_repos(access_token)
 
 
 # Create singleton instance

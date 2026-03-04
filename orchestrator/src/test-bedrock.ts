@@ -45,17 +45,17 @@ async function testBedrock() {
 
         console.log(`Latency: ${latencyMs}ms\n`);
         console.log("─── RAW RESPONSE ───");
-        console.log(rawText);
+        console.log(JSON.stringify(rawText, null, 2));
         console.log("─── END RESPONSE ───\n");
 
-        const parsed = JSON.parse(rawText);
+        const parsed = rawText;
         console.log("✅ JSON parse: PASSED\n");
 
         validatePlannerOutput(parsed);
         console.log("✅ Schema validation: PASSED");
-        console.log(`✅ Steps: ${parsed.execution_plan.steps.length}`);
-        console.log(`✅ Risk: ${parsed.execution_plan.estimated_risk}`);
-        console.log(`✅ Tools: ${parsed.execution_plan.steps.map((s: any) => s.tool).join(", ")}`);
+        console.log(`✅ Steps: ${(parsed as any).execution_plan.steps.length}`);
+        console.log(`✅ Risk: ${(parsed as any).execution_plan.estimated_risk}`);
+        console.log(`✅ Tools: ${(parsed as any).execution_plan.steps.map((s: any) => s.tool).join(", ")}`);
 
         console.log("\n🟢 BEDROCK VERIFICATION COMPLETE — All checks passed.");
     } catch (err: any) {

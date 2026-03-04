@@ -25,7 +25,7 @@ export async function retrieveStage(execution: Readonly<Execution>): Promise<Sta
 
     const query = buildQuery(execution);
 
-    const retrieval = await retrieveContext(query);
+    const retrieval = await retrieveContext(query, execution.repo_id);
 
     if (retrieval.chunk_refs.length === 0) {
         console.error(`[RETRIEVE STAGE] Empty retrieval — cannot proceed to REASON`);

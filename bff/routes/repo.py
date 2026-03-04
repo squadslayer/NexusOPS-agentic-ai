@@ -14,6 +14,66 @@ from bff.services.github_service import github_service
 bp = Blueprint('repos', __name__, url_prefix='/repos')
 
 
+@bp.route('/', methods=['GET'])
+@require_auth
+@governance_error_handler
+def get_repos():
+    """
+    GET /repos
+    
+    Fetch all repositories accessible to the user (owned, member, collaborator).
+    
+    REQUIRES: Valid JWT token in Authorization header
+    
+    Returns:
+        StandardResponseEnvelope with list of repositories.
+    """
+    execution_id = generate_execution_id()
+    user_id = g.user_id
+    
+    try:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Fetching repos for user {user_id} (execution_id: {execution_id})")
+        
+        repos = github_service.get_user_repos(user_id)
+        
+        # Simplify the repo list for the frontend
+        simplified_repos = [
+            {
+                "id": r.get("id"),
+                "name": r.get("name"),
+                "full_name": r.get("full_name"),
+                "html_url": r.get("html_url"),
+                "private": r.get("private"),
+                "permissions": r.get("permissions", {})
+            } for r in repos
+        ]
+        
+        response = create_success_response(
+            data={"repositories": simplified_repos},
+            execution_id=execution_id
+        )
+        return response, 200
+        
+    except ValueError as e:
+        logger.error(f"Error fetching repos: {str(e)}")
+        response = create_error_response(
+            error_message=str(e),
+            error_code="NOT_FOUND",
+            execution_id=execution_id
+        )
+        return response, 404
+    except Exception as e:
+        logger.error(f"Unexpected error fetching repos: {str(e)}")
+        response = create_error_response(
+            error_message="Failed to fetch repositories",
+            error_code="INTERNAL_ERROR",
+            execution_id=execution_id
+        )
+        return response, 500
+
+
 @bp.route('/connect', methods=['POST'])
 @require_auth
 @governance_error_handler
