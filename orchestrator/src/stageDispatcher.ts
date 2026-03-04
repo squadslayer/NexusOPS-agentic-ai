@@ -1,11 +1,11 @@
 /**
- * stageDispatcher.ts — Core lifecycle engine.
+ * stageDispatcher.ts — Core lifecycle engine (Phase-8).
  *
- * Routes execution deterministically through the NexusOPS agentic loop.
+ * Routes execution deterministically through the complete NexusOPS agentic loop.
  * This is the CENTRAL NERVOUS SYSTEM of the orchestrator.
  *
  * Every stage function MUST return a StageResult indicating the next stage.
- * Stages that are not yet implemented return placeholder results.
+ * All 7 operational stages are now fully implemented (Phase-8 complete).
  *
  * GOVERNANCE:
  *   Dispatcher SUGGESTS transitions via stage return values.
@@ -22,6 +22,8 @@ import { retrieveStage } from "./stages/retrieveStage";
 import { reasonStage } from "./stages/reasonStage";
 import { constraintStage } from "./stages/constraintStage";
 import { approvalStage } from "./stages/approvalStage";
+import { actStage } from "./stages/actStage";
+import { verifyStage } from "./stages/verifyStage";
 
 /**
  * Dispatches an execution to the appropriate stage handler.
@@ -47,10 +49,10 @@ export async function dispatchStage(execution: Readonly<Execution>): Promise<Sta
             return approvalStage(execution);
 
         case Stage.ACT:
-            return placeholderStage(execution, Stage.VERIFY, "ACT");
+            return actStage(execution);
 
         case Stage.VERIFY:
-            return placeholderStage(execution, Stage.COMPLETED, "VERIFY");
+            return verifyStage(execution);
 
         case Stage.COMPLETED:
         case Stage.FAILED:
@@ -62,20 +64,4 @@ export async function dispatchStage(execution: Readonly<Execution>): Promise<Sta
         default:
             throw new InvalidStage(execution.stage);
     }
-}
-
-/**
- * Placeholder for stages not yet implemented.
- * Returns a deterministic next stage for skeleton validation.
- */
-function placeholderStage(execution: Readonly<Execution>, nextStage: Stage, stageName: string): StageResult {
-    console.log(`[${stageName} STAGE] Placeholder — execution: ${execution.execution_id}`);
-    return {
-        nextStage,
-        output: {
-            message: `${stageName} stage completed (placeholder)`,
-            execution_id: execution.execution_id,
-            processed_at: new Date().toISOString(),
-        },
-    };
 }
