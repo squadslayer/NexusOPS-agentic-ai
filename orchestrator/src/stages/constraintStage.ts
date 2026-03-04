@@ -1,8 +1,15 @@
 /**
- * constraintStage.ts — CONSTRAINT lifecycle stage (Phase-6).
+ * constraintStage.ts — CONSTRAINT lifecycle stage (Phase-6, updated Phase-9).
  *
  * Deterministic validation gate between REASON and state mutation.
  * Runs the constraint engine against the planner's execution plan.
+ *
+ * Phase-9 additions:
+ *   ✅ Compute SHA-256 risk hash of the validated plan
+ *   ✅ Look up risk hash in risk registry
+ *   ✅ Block execution if recurrence threshold exceeded
+ *   ✅ Record or increment occurrence in registry
+ *   ✅ Pass risk_hash forward in output for audit trail
  *
  * STRICT RULES:
  *   ✅ Extract execution_plan from previous stage output
@@ -23,6 +30,8 @@ import {
     ExecutionPlan,
     ConstraintResult,
 } from "../constraints/constraintEngine";
+import { computeRiskHash } from "../utils/riskHasher";
+import { riskRegistry, isRecurrenceBlocked } from "../services/riskRegistryRepository";
 
 export async function constraintStage(execution: Readonly<Execution>): Promise<StageResult> {
     console.log(`[CONSTRAINT STAGE] Processing execution: ${execution.execution_id}`);
@@ -66,6 +75,51 @@ export async function constraintStage(execution: Readonly<Execution>): Promise<S
         };
     }
 
+    // ── Phase-9: RISK REGISTRY ENFORCEMENT ──────────────────────────────
+
+    // 1. Compute deterministic fingerprint of the validated plan
+    const riskHash = computeRiskHash(plan);
+
+    console.log(JSON.stringify({
+        event: "RISK_HASH_COMPUTED",
+        execution_id: execution.execution_id,
+        risk_hash: riskHash.slice(0, 12) + "...",
+        risk_level: result.finalRisk,
+    }));
+
+    // 2. Look up existing risk record
+    const existingRecord = await riskRegistry.getRisk(riskHash);
+
+    if (existingRecord) {
+        // 3. Check recurrence threshold BEFORE incrementing
+        if (isRecurrenceBlocked(existingRecord)) {
+            console.error(
+                `[CONSTRAINT STAGE] Risk recurrence blocked — hash: ${riskHash.slice(0, 12)}, ` +
+                `count: ${existingRecord.occurrence_count}, level: ${existingRecord.risk_level}`
+            );
+            return {
+                nextStage: Stage.FAILED,
+                status: ExecutionStatus.FAILED,
+                output: {
+                    message: "CONSTRAINT stage failed: repeated high-risk execution detected",
+                    execution_id: execution.execution_id,
+                    reason: "RISK_RECURRENCE_BLOCKED",
+                    risk_hash: riskHash,
+                    occurrence_count: existingRecord.occurrence_count,
+                    risk_level: existingRecord.risk_level,
+                },
+            };
+        }
+
+        // 4. Increment occurrence count for existing (not-yet-blocked) record
+        await riskRegistry.incrementOccurrence(riskHash);
+    } else {
+        // 5. First time seeing this plan — record it
+        await riskRegistry.recordRisk(riskHash, result.finalRisk);
+    }
+
+    // ── END Phase-9 ──────────────────────────────────────────────────────
+
     if (result.requiresApproval) {
         console.log(`[CONSTRAINT STAGE] Plan requires approval (risk: ${result.finalRisk})`);
         return {
@@ -76,6 +130,7 @@ export async function constraintStage(execution: Readonly<Execution>): Promise<S
                 finalRisk: result.finalRisk,
                 requiresApproval: true,
                 validated_plan: plan,
+                risk_hash: riskHash,
             },
         };
     }
@@ -90,6 +145,7 @@ export async function constraintStage(execution: Readonly<Execution>): Promise<S
             finalRisk: result.finalRisk,
             requiresApproval: false,
             validated_plan: plan,
+            risk_hash: riskHash,
         },
     };
 }
