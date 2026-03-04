@@ -17,14 +17,14 @@
 import { Execution, ExecutionRequest, ExecutionStatus } from "./models/execution";
 import { Stage, isValidTransition } from "./models/stages";
 import { StageResult } from "./models/stageResult";
-import { LocalMemoryRepository } from "./services/executionRepository";
+import { LocalMemoryRepository, repository } from "./services/executionRepository";
 import { LoggingService } from "./services/loggingService";
 import { dispatchStage } from "./stageDispatcher";
 import { markExpired } from "./services/approvalRepository";
 import { successResponse, errorResponse, OrchestratorResponse } from "./utils/response";
 import { OrchestratorError, InvalidStageTransition } from "./utils/errors";
 
-const repository = new LocalMemoryRepository();
+// Use the shared singleton repository instance
 const logger = new LoggingService();
 
 /**
@@ -242,5 +242,7 @@ async function main() {
     console.log("✅ Phase-8 validation PASSED — full lifecycle reached COMPLETED");
 }
 
-main().catch(console.error);
+if (require.main === module) {
+    main().catch(console.error);
+}
 
