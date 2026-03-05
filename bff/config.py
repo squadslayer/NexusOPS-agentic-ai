@@ -6,6 +6,12 @@ local development and AWS production environments based on the ENV environment v
 
 import os
 import logging
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env from BFF directory
+_bff_dir = Path(__file__).resolve().parent
+load_dotenv(_bff_dir / ".env")
 
 
 # Read environment variable (default to 'local' for safety)

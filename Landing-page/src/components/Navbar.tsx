@@ -9,7 +9,7 @@ const navLinks = [
     { name: "Architecture", href: "/architecture" },
     { name: "Features", href: "/features" },
     { name: "Security", href: "/security" },
-    { name: "Dashboard", href: "/dashboard" },
+    { name: "Deploy", href: "/deploy" },
 ];
 
 export function Navbar() {
@@ -55,12 +55,9 @@ export function Navbar() {
                 </div>
 
                 <div className="hidden md:flex items-center gap-4">
-                    <a href="http://localhost:3000/login" className="text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
-                        Login
-                    </a>
-                    <a href="http://localhost:3000/dashboard" className="inline-block bg-primary hover:bg-primary/90 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors">
-                        Open Dashboard
-                    </a>
+                    <Link href="http://localhost:3001/login" className="inline-block bg-primary hover:bg-primary/90 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors">
+                        Deploy NexusOPS
+                    </Link>
                 </div>
 
                 {/* Mobile Menu Toggle */}
@@ -98,8 +95,8 @@ export function Navbar() {
                                     {link.name}
                                 </Link>
                             ))}
-                            <Link href="/dashboard" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-center inline-block bg-primary hover:bg-primary/90 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors mt-2">
-                                Launch Console
+                            <Link href="http://localhost:3001/login" onClick={() => setIsMobileMenuOpen(false)} className="w-full text-center inline-block bg-primary hover:bg-primary/90 text-white text-sm font-medium px-4 py-2 rounded-md transition-colors mt-2">
+                                Deploy NexusOPS
                             </Link>
                         </div>
                     </motion.div>

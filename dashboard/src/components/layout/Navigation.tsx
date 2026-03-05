@@ -23,7 +23,7 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
     {
         heading: "Overview",
         items: [
-            { label: "Home", href: "http://localhost:4000", icon: HomeIcon },
+            { label: "Home", href: "http://localhost:3000", icon: HomeIcon },
             { label: "Dashboard", href: "/dashboard", icon: ChartBarSquareIcon },
             { label: "Repositories", href: "/repositories", icon: ServerStackIcon },
         ],

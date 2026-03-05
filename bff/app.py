@@ -4,12 +4,13 @@ This application is designed to simulate AWS API Gateway behavior locally,
 enabling development and testing of the NexusOPS dashboard and orchestrator.
 """
 
-from fastapi import FastAPI, Request, Request
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from bff.routes import execution_router, auth_router, repo_router, ws_router
 from bff import config
 from bff.middleware import generate_execution_id
 import logging
+import os
 
 # Configure logging
 logging.basicConfig(level=config.LOG_LEVEL)
@@ -72,10 +73,12 @@ app = create_app()
 
 if __name__ == '__main__':
     import uvicorn
-    # Run the app locally
+    # Only watch the bff/ directory for changes (not dashboard/landing-page)
+    bff_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)))
     uvicorn.run(
         "bff.app:app",
         host='0.0.0.0',
-        port=8000, # Matched with NEXT_PUBLIC_BFF_URL in dashboard
-        reload=config.DEBUG
+        port=8000,
+        reload=config.DEBUG,
+        reload_dirs=[bff_dir] if config.DEBUG else None
     )

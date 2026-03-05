@@ -156,19 +156,20 @@ async def github_callback(code: str = None, error: str = None):
     Handles the GitHub OAuth callback, exchanges code for token,
     fetches user profile, issues a JWT, and redirects to the dashboard.
     """
-    dashboard_url = "http://localhost:3000/dashboard"
+    dashboard_url = "http://localhost:3001/dashboard"
 
     if error or not code:
-        return RedirectResponse(url=f"http://localhost:3000/login?error=github_denied")
+        return RedirectResponse(url=f"http://localhost:3001/login?error=github_denied")
 
     try:
         # Exchange code for GitHub access token
-        access_token = await github_service.oauth_service.exchange_code_for_token_async(code) \
-            if hasattr(github_service.oauth_service, 'exchange_code_for_token_async') \
-            else github_service.oauth_service.exchange_code(code)
+        token_result = github_service.oauth_service.exchange_code_for_token(code)
+        access_token = token_result.get("access_token") if isinstance(token_result, dict) else token_result
+        if not access_token:
+            raise ValueError("No access_token in OAuth response")
     except Exception as e:
         logger.error(f"GitHub OAuth exchange failed: {e}")
-        return RedirectResponse(url=f"http://localhost:3000/login?error=oauth_failed")
+        return RedirectResponse(url=f"http://localhost:3001/login?error=oauth_failed")
 
     try:
         # Fetch GitHub user profile
@@ -186,21 +187,26 @@ async def github_callback(code: str = None, error: str = None):
         avatar_url = gh_user.get("avatar_url", "")
         email = gh_user.get("email", f"{login}@github.com")
 
-        # Issue a NexusOPS JWT
+        # Issue a NexusOPS JWT (include both 'sub' and 'user_id' for compatibility)
         payload = {
             "sub": user_id,
+            "user_id": user_id,
             "login": login,
             "name": name,
             "email": email,
             "avatar_url": avatar_url,
+            "iss": "nexusops-bff",
             "iat": int(time.time()),
             "exp": int(time.time()) + (config.JWT_EXPIRATION_HOURS * 3600),
         }
         token = pyjwt.encode(payload, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
+
+        # Store the GitHub access token in memory so /repos/ can use it
+        github_service.store_session_token(user_id, access_token)
 
         # Redirect to dashboard with token in query param (frontend picks it up and saves to localStorage)
         return RedirectResponse(url=f"{dashboard_url}?token={token}")
 
     except Exception as e:
         logger.error(f"GitHub profile fetch failed: {e}")
-        return RedirectResponse(url=f"http://localhost:3000/login?error=profile_failed")
+        return RedirectResponse(url=f"http://localhost:3001/login?error=profile_failed")

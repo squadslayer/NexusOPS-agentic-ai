@@ -27,7 +27,7 @@ async def authorize_github(user_id: str = Depends(require_auth_fastapi)):
 
 
 @router.get("/")
-async def get_repos(user_id: str = Depends(require_auth_fastapi)):
+async def get_repos(request: Request, user_id: str = Depends(require_auth_fastapi)):
     """
     GET /repos
     Fetch all repositories accessible to the user.
@@ -35,7 +35,20 @@ async def get_repos(user_id: str = Depends(require_auth_fastapi)):
     execution_id = generate_execution_id()
     
     try:
-        repos = github_service.get_user_repos(user_id)
+        # Try to get the real user_id from the JWT (AUTH_BYPASS gives "local-dev-user")
+        actual_user_id = user_id
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            try:
+                import jwt as pyjwt
+                from bff import config
+                token = auth_header.split(" ", 1)[1]
+                payload = pyjwt.decode(token, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
+                actual_user_id = payload.get("user_id") or payload.get("sub") or user_id
+            except Exception:
+                pass  # Fall back to the auth-injected user_id
+
+        repos = github_service.get_user_repos(actual_user_id)
         
         simplified_repos = [
             {

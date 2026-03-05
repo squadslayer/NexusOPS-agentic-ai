@@ -452,6 +452,66 @@ class GitHubIntegrationService:
             logger.error(f"GitHub integration failed: {str(e)}")
             raise
 
+    def get_user_repos(self, user_id: str) -> list:
+        """
+        Fetch all repositories accessible to the authenticated user.
+
+        Uses the stored GitHub access token for the user. If no token
+        is found (e.g. local dev with AUTH_BYPASS), returns an empty list.
+
+        Args:
+            user_id (str): NexusOps user ID
+
+        Returns:
+            list: List of repository dicts from the GitHub API
+        """
+        try:
+            # Try to get any stored token for this user
+            # In local dev (AUTH_BYPASS) the user_id will be "local-dev-user"
+            # and there won't be a stored token — return empty list gracefully.
+            access_token = None
+
+            # Check if user has a stored token for any repo
+            # (We can't scan DynamoDB, so we try using the token from the session)
+            if hasattr(self, '_session_tokens') and user_id in self._session_tokens:
+                access_token = self._session_tokens[user_id]
+
+            if not access_token:
+                logger.info(f"No GitHub token found for user {user_id} — returning empty repo list")
+                return []
+
+            # Call GitHub API to list user repos
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/vnd.github.v3+json'
+            }
+
+            response = requests.get(
+                f"{self.oauth_service.api_base}/user/repos",
+                headers=headers,
+                params={"per_page": 100, "sort": "updated"},
+                timeout=15
+            )
+
+            if response.status_code == 200:
+                repos = response.json()
+                logger.info(f"Fetched {len(repos)} repos for user {user_id}")
+                return repos
+            else:
+                logger.warning(f"GitHub API returned {response.status_code} for user repos")
+                return []
+
+        except Exception as e:
+            logger.error(f"Error fetching repos for user {user_id}: {str(e)}")
+            return []
+
+    def store_session_token(self, user_id: str, access_token: str):
+        """Store a GitHub access token in memory for the current session."""
+        if not hasattr(self, '_session_tokens'):
+            self._session_tokens = {}
+        self._session_tokens[user_id] = access_token
+        logger.debug(f"Session token stored for user {user_id}")
+
 
 # Create singleton instance
 github_service = GitHubIntegrationService()

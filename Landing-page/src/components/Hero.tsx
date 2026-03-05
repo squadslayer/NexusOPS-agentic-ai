@@ -36,8 +36,8 @@ export function Hero() {
                             transition={{ duration: 0.6, delay: 0.3 }}
                             className="flex flex-col sm:flex-row items-center gap-4 w-full justify-center"
                         >
-                            <Link href="/dashboard" className="inline-flex w-full sm:w-auto items-center justify-center bg-primary hover:bg-primary/90 text-white font-medium px-8 py-3.5 rounded-md transition-colors text-sm">
-                                Launch Console
+                            <Link href="http://localhost:3001/login" className="inline-flex w-full sm:w-auto items-center justify-center bg-primary hover:bg-primary/90 text-white font-medium px-8 py-3.5 rounded-md transition-colors text-sm">
+                                Deploy NexusOPS
                             </Link>
                             <Link href="/architecture" className="inline-flex w-full sm:w-auto items-center justify-center bg-surface hover:bg-surface/80 border border-white/10 text-text-primary font-medium px-8 py-3.5 rounded-md transition-colors text-sm">
                                 View Architecture
