@@ -82,7 +82,15 @@ class GitHubOAuthService:
         self.redirect_uri = config.GITHUB_REDIRECT_URI
         self.token_url = "https://github.com/login/oauth/access_token"
         self.api_base = config.GITHUB_API_BASE_URL
-    
+    def get_authorization_url(self, state: str) -> str:
+        """Generate GitHub OAuth authorization URL."""
+        return (
+            f"https://github.com/login/oauth/authorize"
+            f"?client_id={self.client_id}"
+            f"&redirect_uri={self.redirect_uri}"
+            f"&scope=repo,read:user"
+            f"&state={state}"
+        )
     def exchange_code_for_token(self, code: str) -> Dict[str, Any]:
         """
         Exchange GitHub authorization code for access token.

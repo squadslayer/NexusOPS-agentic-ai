@@ -13,6 +13,9 @@ from .error_handler import (
 from .auth_middleware import (
     require_auth
 )
+from .auth_fastapi import (
+    require_auth_fastapi
+)
 from .rate_limit import (
     rate_limit
 )

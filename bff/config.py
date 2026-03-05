@@ -31,6 +31,11 @@ if ENV == 'local':
     # Bypass authentication for easier local testing
     AUTH_BYPASS = True
     
+    # Inject dummy AWS credentials to completely bypass Boto3 metadata 60s timeout hangs
+    os.environ['AWS_ACCESS_KEY_ID'] = 'test-local-key'
+    os.environ['AWS_SECRET_ACCESS_KEY'] = 'test-local-secret'
+    os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
+    
     # Additional local settings
     DEBUG = True
     TESTING = True
@@ -74,7 +79,7 @@ JWT_EXPIRATION_HOURS = 24
 GITHUB_API_BASE_URL = "https://api.github.com"
 GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID', 'dev-client-id')
 GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET', 'dev-client-secret')
-GITHUB_REDIRECT_URI = os.getenv('GITHUB_REDIRECT_URI', 'http://localhost:5000/auth/github/callback')
+GITHUB_REDIRECT_URI = os.getenv('GITHUB_REDIRECT_URI', 'http://localhost:8000/auth/github/callback')
 
 # Token Encryption Configuration
 ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY', 'your-32-byte-encryption-key-change-production')

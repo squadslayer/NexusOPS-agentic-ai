@@ -1,0 +1,88 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ─── Base Reset ─────────────────────────────────────────── */
+@layer base {
+  *, *::before, *::after {
+    box-sizing: border-box;
+    border-color: theme('colors.border');
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-textMain font-sans text-sm;
+    margin: 0;
+  }
+
+  h1 { @apply text-2xl font-semibold tracking-tight text-textMain; }
+  h2 { @apply text-xl font-semibold tracking-tight text-textMain; }
+  h3 { @apply text-lg font-medium text-textMain; }
+  h4 { @apply text-base font-medium text-textSub; }
+  p  { @apply text-sm text-textSub leading-relaxed; }
+
+  a {
+    @apply text-infoText hover:underline underline-offset-2;
+    transition: color 120ms ease;
+  }
+
+  code {
+    @apply font-mono text-xs bg-surface px-1 py-0.5 rounded;
+  }
+
+  /* Custom scrollbar — subtle, AWS-style */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { @apply bg-border rounded-full; }
+  ::-webkit-scrollbar-thumb:hover { @apply bg-textMuted; }
+}
+
+/* ─── Reusable Component Utilities ──────────────────────── */
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center px-4 py-2 rounded text-sm font-medium
+           bg-primary text-white hover:bg-primaryHover
+           focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2 focus:ring-offset-background
+           transition-colors;
+  }
+
+  .btn-secondary {
+    @apply inline-flex items-center px-4 py-2 rounded text-sm font-medium
+           bg-surface text-textSub border border-border hover:bg-surfaceHover hover:text-textMain
+           focus:outline-none focus:ring-2 focus:ring-border focus:ring-offset-1 focus:ring-offset-background
+           transition-colors;
+  }
+
+  .card {
+    @apply bg-surface border border-border rounded p-4;
+  }
+
+  .badge {
+    @apply inline-flex items-center px-2 py-0.5 rounded text-xs font-medium;
+  }
+
+  .badge-success { @apply badge bg-success/20 text-successText; }
+  .badge-warning { @apply badge bg-warning/20 text-warningText; }
+  .badge-danger  { @apply badge bg-danger/20 text-dangerText; }
+  .badge-info    { @apply badge bg-info/20 text-infoText; }
+  .badge-neutral { @apply badge bg-border text-textSub; }
+
+  .status-dot {
+    @apply inline-block w-2 h-2 rounded-full;
+  }
+
+  .page-title {
+    @apply text-xl font-semibold text-textMain;
+  }
+
+  .section-label {
+    @apply text-xs font-semibold uppercase tracking-widest text-textMuted;
+  }
+}
