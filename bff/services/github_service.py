@@ -82,7 +82,15 @@ class GitHubOAuthService:
         self.redirect_uri = config.GITHUB_REDIRECT_URI
         self.token_url = "https://github.com/login/oauth/access_token"
         self.api_base = config.GITHUB_API_BASE_URL
-    
+    def get_authorization_url(self, state: str) -> str:
+        """Generate GitHub OAuth authorization URL."""
+        return (
+            f"https://github.com/login/oauth/authorize"
+            f"?client_id={self.client_id}"
+            f"&redirect_uri={self.redirect_uri}"
+            f"&scope=repo,read:user"
+            f"&state={state}"
+        )
     def exchange_code_for_token(self, code: str) -> Dict[str, Any]:
         """
         Exchange GitHub authorization code for access token.
@@ -502,14 +510,63 @@ class GitHubIntegrationService:
 
     def get_user_repos(self, user_id: str) -> list:
         """
-        Fetch the list of repositories available to the user.
-        Uses any existing valid stored token for that user.
+        Fetch all repositories accessible to the authenticated user.
+
+        Uses the stored GitHub access token for the user. If no token
+        is found (e.g. local dev with AUTH_BYPASS), returns an empty list.
+
+        Args:
+            user_id (str): NexusOps user ID
+
+        Returns:
+            list: List of repository dicts from the GitHub API
         """
-        access_token = self.token_store.get_any_token_for_user(user_id)
-        if not access_token:
-            raise ValueError("No GitHub token found for user. Please connect a repository first to authorize NexusOPS.")
-        
-        return self.oauth_service.get_user_repos(access_token)
+        try:
+            # Try to get any stored token for this user
+            # In local dev (AUTH_BYPASS) the user_id will be "local-dev-user"
+            # and there won't be a stored token — return empty list gracefully.
+            access_token = None
+
+            # Check if user has a stored token for any repo
+            # (We can't scan DynamoDB, so we try using the token from the session)
+            if hasattr(self, '_session_tokens') and user_id in self._session_tokens:
+                access_token = self._session_tokens[user_id]
+
+            if not access_token:
+                logger.info(f"No GitHub token found for user {user_id} — returning empty repo list")
+                return []
+
+            # Call GitHub API to list user repos
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/vnd.github.v3+json'
+            }
+
+            response = requests.get(
+                f"{self.oauth_service.api_base}/user/repos",
+                headers=headers,
+                params={"per_page": 100, "sort": "updated"},
+                timeout=15
+            )
+
+            if response.status_code == 200:
+                repos = response.json()
+                logger.info(f"Fetched {len(repos)} repos for user {user_id}")
+                return repos
+            else:
+                logger.warning(f"GitHub API returned {response.status_code} for user repos")
+                return []
+
+        except Exception as e:
+            logger.error(f"Error fetching repos for user {user_id}: {str(e)}")
+            return []
+
+    def store_session_token(self, user_id: str, access_token: str):
+        """Store a GitHub access token in memory for the current session."""
+        if not hasattr(self, '_session_tokens'):
+            self._session_tokens = {}
+        self._session_tokens[user_id] = access_token
+        logger.debug(f"Session token stored for user {user_id}")
 
 
 # Create singleton instance

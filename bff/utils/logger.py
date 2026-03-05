@@ -16,8 +16,12 @@ import time
 from datetime import datetime, timezone
 from functools import wraps
 
-from flask import request, g
 import uuid
+from flask import request, g
+
+def _generate_execution_id() -> str:
+    """Local copy to avoid circular import with middleware.error_handler."""
+    return str(uuid.uuid4())
 
 logger = logging.getLogger("bff.audit")
 
@@ -113,7 +117,7 @@ def audit_log(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         start = time.perf_counter()
-        execution_id = getattr(g, "execution_id", str(uuid.uuid4()))
+        execution_id = getattr(g, "execution_id", _generate_execution_id())
 
         result = f(*args, **kwargs)
 

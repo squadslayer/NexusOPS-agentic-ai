@@ -1,127 +1,75 @@
-"""Execution routes for triggering orchestrator workflows.
-
-Track 5 + Track 6 integration:
-  POST /executions/start now enforces the full governance pipeline:
-    @require_auth  → Track 3 JWT auth
-    @audit_log     → Track 6 structured request logging
-    @rate_limit    → Track 6 anti-spam (5 req/min/user)
-    @validate_execution_request → Track 6 schema gatekeeper
-    @governance_error_handler   → Track 2 error normalisation
-    → repo verification (Track 4) → orchestrator invocation (Track 5)
-"""
-
-import boto3
-from flask import Blueprint, request, g
-from botocore.exceptions import ClientError
-from bff import config
-from bff.middleware import (
-    governance_error_handler,
-    generate_execution_id,
-    require_auth,
-    rate_limit,
-    validate_execution_request,
-)
-from bff.middleware.error_handler import format_response_for_api
-from bff.utils import create_success_response, create_error_response
-from bff.utils.logger import audit_log
+from fastapi import APIRouter, Request, Depends, HTTPException, BackgroundTasks
+from bff.middleware import generate_execution_id, require_auth_fastapi
+from bff.utils import create_success_response_fastapi, create_error_response_fastapi
 from bff.services.orchestrator_client import invoke_orchestrator
 from bff.services.github_service import github_service
+from bff import config
+import boto3
+import logging
 
-# Create blueprint
-bp = Blueprint('executions', __name__, url_prefix='/executions')
+logger = logging.getLogger(__name__)
 
+router = APIRouter(prefix="/executions", tags=["executions"])
 
-@bp.route('/start', methods=['POST'])
-@require_auth
-@audit_log
-@rate_limit
-@validate_execution_request
-@governance_error_handler
-def start_execution():
+@router.post("/start")
+async def start_execution(request: Request, user_id: str = Depends(require_auth_fastapi)):
     """POST /executions/start
-
-    Full governance pipeline:
-      1. JWT authentication           (@require_auth  — Track 3)
-      2. Audit logging                (@audit_log     — Track 6)
-      3. Rate limiting                (@rate_limit    — Track 6)
-      4. Request schema validation    (@validate_execution_request — Track 6)
-      5. Error normalisation          (@governance_error_handler — Track 2)
-      6. Repo ownership verification  (Track 4)
-      7. Orchestrator invocation      (Track 5)
-
-    Request JSON body::
-
-        {
-            "repo_id": "https://github.com/owner/repo",
-            "input": {}           // optional free-form payload
-        }
-
-    Returns:
-        StandardResponseEnvelope with ``meta.stage == "ASK"``, HTTP 202.
+    Enforces the full governance pipeline using FastAPI.
     """
-    execution_id = g.get("execution_id") or generate_execution_id()
-
-    # ------------------------------------------------------------------
-    # Body already validated by @validate_execution_request
-    # ------------------------------------------------------------------
-    body = request.get_json(silent=True) or {}
-    repo_id = body.get("repo_id")
+    execution_id = generate_execution_id()
+    
+    try:
+        body = await request.json()
+    except:
+        body = {}
+    
+    repo_id = body.get("repository_url") or body.get("repo_id")
     user_input = body.get("input", {})
 
-    # ------------------------------------------------------------------
-    # Verify the user has PULL access to the repo (Track 4 / Phase 11)
-    # ------------------------------------------------------------------
-    user_id = g.user_id
+    if not repo_id:
+        raise HTTPException(status_code=400, detail="repository_url is required")
 
     access_token = github_service.token_store.get_any_token_for_user(user_id)
     if not access_token:
-        error_resp = create_error_response(
+        return create_error_response_fastapi(
             error_message="No GitHub account linked. Please connect a repository first.",
             error_code="AUTH_ERROR",
-            execution_id=execution_id,
-            stage="ASK",
+            execution_id=execution_id
         )
-        return error_resp, 403
 
     is_accessible, repo_info = github_service.oauth_service.validate_repository_access(
         access_token, repo_id
     )
 
     if not is_accessible:
-        error_resp = create_error_response(
+        return create_error_response_fastapi(
             error_message="You do not have pull access to this repository.",
             error_code="AUTH_ERROR",
-            execution_id=execution_id,
-            stage="ASK",
+            execution_id=execution_id
         )
-        return error_resp, 403
 
-    # ------------------------------------------------------------------
-    # Invoke the Orchestrator Lambda (Track 5)
-    # ------------------------------------------------------------------
+    # Invoke the Orchestrator
     envelope = invoke_orchestrator(
         user_id=user_id,
         repo_id=repo_id,
         user_input=user_input,
     )
 
-    status_code = 202 if envelope.success else 502
-    return envelope, status_code
+    if not envelope.get("success", True):
+        raise HTTPException(status_code=502, detail="Orchestrator invocation failed")
 
+    return create_success_response_fastapi(
+        data=envelope.get("data", {}),
+        execution_id=execution_id,
+        stage="ASK"
+    )
 
-@bp.route('/<id>', methods=['GET'])
-@require_auth
-@audit_log
-@governance_error_handler
-def get_execution(id):
+@router.get("/{id}")
+async def get_execution(id: str, user_id: str = Depends(require_auth_fastapi)):
     """GET /executions/{id}
-
-    Retrieve the status and details of an execution by querying the DynamoDB ExecutionRecords table.
-
-    REQUIRES: Valid JWT token in Authorization header
+    Retrieve the status and details of an execution.
     """
     execution_id = generate_execution_id()
-    user_id = g.user_id
     
     try:
         dynamodb = boto3.resource(
@@ -135,21 +83,16 @@ def get_execution(id):
         item = response.get("Item")
         
         if not item:
-            return create_error_response(
+            return create_error_response_fastapi(
                 error_message="Execution record not found",
                 error_code="NOT_FOUND",
                 execution_id=execution_id,
-            ), 404
+            )
             
-        # Optional: ensure the user requesting the record owns it
         if item.get("user_id") != user_id:
-            return create_error_response(
-                error_message="Unauthorized access to execution record",
-                error_code="AUTH_ERROR",
-                execution_id=execution_id,
-            ), 403
+            raise HTTPException(status_code=403, detail="Unauthorized access to execution record")
             
-        return create_success_response(
+        return create_success_response_fastapi(
             data={
                 "execution_id": item.get("execution_id"),
                 "user_id": item.get("user_id"),
@@ -161,14 +104,8 @@ def get_execution(id):
             },
             execution_id=execution_id,
             stage=item.get("stage")
-        ), 200
+        )
         
-    except ClientError as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"DynamoDB error querying execution {id}: {str(e)}")
-        return create_error_response(
-            error_message="Database error occurred",
-            error_code="INTERNAL_ERROR",
-            execution_id=execution_id,
-        ), 500
+    except Exception as e:
+        logger.error(f"Error querying execution {id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Database error occurred")

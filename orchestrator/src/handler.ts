@@ -36,6 +36,31 @@ function generateRequestId(): string {
 }
 
 /**
+ * Notifies the BFF about an execution stage transition via HTTP POST.
+ * This triggers the WebSocket broadcast to the Dashboard.
+ */
+async function notifyBffOfTransition(execution_id: string, stage: string, status: string): Promise<void> {
+    const bffUrl = process.env.BFF_URL || "http://localhost:8000";
+    try {
+        const response = await fetch(`${bffUrl}/ws/notify`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                execution_id,
+                stage,
+                status,
+                timestamp: new Date().toISOString()
+            })
+        });
+        if (!response.ok) {
+            console.warn(`[WEBSOCKET NOTIFY] BFF returned status ${response.status}`);
+        }
+    } catch (err) {
+        console.warn(`[WEBSOCKET NOTIFY] Failed to reach BFF at ${bffUrl}`);
+    }
+}
+
+/**
  * Main orchestrator handler.
  * Accepts an execution request and drives it through one lifecycle step.
  */
@@ -105,6 +130,12 @@ export async function handler(
             "SUCCESS"
         ).catch((err) =>
             console.warn("[LOGGING FAILED]", err)
+        );
+
+        // ── WEBSOCKET STREAMING ──
+        // Notify BFF of the new stage and status for real-time dashboard updates.
+        notifyBffOfTransition(updated.execution_id, updated.stage, updated.status).catch(err =>
+            console.warn("[WEBSOCKET NOTIFY FAILED]", err)
         );
 
         return successResponse(

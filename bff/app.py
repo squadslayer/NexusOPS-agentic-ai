@@ -1,61 +1,84 @@
-"""Main Flask application entry point for BFF.
+"""Main FastAPI application entry point for BFF.
 
-This application is strictly designed to simulate AWS API Gateway behavior locally,
-allowing development and testing without deploying to AWS every time.
-
-All responses are governed by StandardResponseEnvelope with strict error masking.
+This application is designed to simulate AWS API Gateway behavior locally,
+enabling development and testing of the NexusOPS dashboard and orchestrator.
 """
 
-from flask import Flask
-from bff.routes import execution, auth, repo
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from bff.routes import execution_router, auth_router, repo_router, ws_router
 from bff import config
-from bff.middleware import register_error_handlers, governance_error_handler, generate_execution_id
-from bff.utils import create_success_response
+from bff.middleware import generate_execution_id
+import logging
+import os
 
+# Configure logging
+logging.basicConfig(level=config.LOG_LEVEL)
+logger = logging.getLogger(__name__)
 
 def create_app():
-    """Create and configure the Flask application."""
-    app = Flask(__name__)
+    """Create and configure the FastAPI application."""
+    app = FastAPI(
+        title=config.APP_NAME,
+        version=config.VERSION,
+        debug=config.DEBUG
+    )
     
-    # Load configuration based on environment
-    app.config['DEBUG'] = config.DEBUG
-    app.config['TESTING'] = config.TESTING
-    app.config['ENV'] = config.CURRENT_ENV
+    # Configure CORS for Dashboard and Landing Page
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"], # In production, restrict to specific domains
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
     
-    # Register route blueprints
-    app.register_blueprint(execution.bp)
-    app.register_blueprint(auth.bp)
-    app.register_blueprint(repo.bp)
+    from fastapi.responses import JSONResponse
+
+    @app.get("/")
+    async def root():
+        return JSONResponse(content={
+            "service": "NexusOPS BFF",
+            "status": "online",
+            "version": config.VERSION
+        })
+
+    # Register routers
+    app.include_router(execution_router)
+    app.include_router(auth_router)
+    app.include_router(repo_router)
+    app.include_router(ws_router)
     
-    # Register global error handlers (governance rules)
-    register_error_handlers(app)
+    @app.get("/health")
+    async def health_check():
+        """Health check endpoint."""
+        return {
+            "success": True,
+            "data": {
+                "service": config.APP_NAME,
+                "version": config.VERSION,
+                "environment": config.CURRENT_ENV,
+                "auth_bypass": config.AUTH_BYPASS
+            },
+            "meta": {
+                "execution_id": generate_execution_id(),
+                "stage": "ASK"
+            }
+        }
     
     return app
-
 
 # Create the application instance
 app = create_app()
 
-
-@app.route('/health', methods=['GET'])
-@governance_error_handler
-def health_check():
-    """Health check endpoint to verify the API is running."""
-    response = create_success_response(
-        data={
-            'service': 'NexusOps BFF',
-            'environment': config.CURRENT_ENV,
-            'auth_bypass': config.AUTH_BYPASS
-        },
-        execution_id=generate_execution_id()
-    )
-    return response, 200
-
-
 if __name__ == '__main__':
-    # Run the Flask app in local development mode
-    app.run(
+    import uvicorn
+    # Only watch the bff/ directory for changes (not dashboard/landing-page)
+    bff_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)))
+    uvicorn.run(
+        "bff.app:app",
         host='0.0.0.0',
-        port=5000,
-        debug=config.DEBUG
+        port=8000,
+        reload=config.DEBUG,
+        reload_dirs=[bff_dir] if config.DEBUG else None
     )

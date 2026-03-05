@@ -1,44 +1,55 @@
-"""Repository management routes.
-
-All routes are protected by JWT authentication middleware.
-User context is injected via Flask g object.
-"""
-
-from flask import Blueprint, request, g
-from bff.middleware import governance_error_handler, generate_execution_id, require_auth
-from bff.utils import create_success_response, create_error_response
+from fastapi import APIRouter, Request, Depends, HTTPException
+from bff.middleware import generate_execution_id, require_auth_fastapi
+from bff.utils import create_success_response_fastapi, create_error_response_fastapi
 from bff.services.github_service import github_service
+import logging
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/repos", tags=["repos"])
 
 
-# Create blueprint
-bp = Blueprint('repos', __name__, url_prefix='/repos')
-
-
-@bp.route('/', methods=['GET'])
-@require_auth
-@governance_error_handler
-def get_repos():
+@router.get("/authorize")
+async def authorize_github(user_id: str = Depends(require_auth_fastapi)):
     """
-    GET /repos
-    
-    Fetch all repositories accessible to the user (owned, member, collaborator).
-    
-    REQUIRES: Valid JWT token in Authorization header
-    
-    Returns:
-        StandardResponseEnvelope with list of repositories.
+    GET /repos/authorize
+    Get the GitHub OAuth authorization URL to initiate the connection flow.
     """
     execution_id = generate_execution_id()
-    user_id = g.user_id
+    state = generate_execution_id()
+    
+    url = github_service.oauth_service.get_authorization_url(state)
+    
+    return create_success_response_fastapi(
+        data={"oauth_url": url},
+        execution_id=execution_id
+    )
+
+
+@router.get("/")
+async def get_repos(request: Request, user_id: str = Depends(require_auth_fastapi)):
+    """
+    GET /repos
+    Fetch all repositories accessible to the user.
+    """
+    execution_id = generate_execution_id()
     
     try:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"Fetching repos for user {user_id} (execution_id: {execution_id})")
+        # Try to get the real user_id from the JWT (AUTH_BYPASS gives "local-dev-user")
+        actual_user_id = user_id
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            try:
+                import jwt as pyjwt
+                from bff import config
+                token = auth_header.split(" ", 1)[1]
+                payload = pyjwt.decode(token, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
+                actual_user_id = payload.get("user_id") or payload.get("sub") or user_id
+            except Exception:
+                pass  # Fall back to the auth-injected user_id
+
+        repos = github_service.get_user_repos(actual_user_id)
         
-        repos = github_service.get_user_repos(user_id)
-        
-        # Simplify the repo list for the frontend
         simplified_repos = [
             {
                 "id": r.get("id"),
@@ -50,131 +61,39 @@ def get_repos():
             } for r in repos
         ]
         
-        response = create_success_response(
+        return create_success_response_fastapi(
             data={"repositories": simplified_repos},
             execution_id=execution_id
         )
-        return response, 200
         
-    except ValueError as e:
-        logger.error(f"Error fetching repos: {str(e)}")
-        response = create_error_response(
-            error_message=str(e),
-            error_code="NOT_FOUND",
-            execution_id=execution_id
-        )
-        return response, 404
     except Exception as e:
-        logger.error(f"Unexpected error fetching repos: {str(e)}")
-        response = create_error_response(
-            error_message="Failed to fetch repositories",
-            error_code="INTERNAL_ERROR",
-            execution_id=execution_id
-        )
-        return response, 500
+        logger.error(f"Error fetching repos for {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch repositories")
 
 
-@bp.route('/connect', methods=['POST'])
-@require_auth
-@governance_error_handler
-def connect_repo():
+@router.post("/connect")
+async def connect_repo(request: Request, user_id: str = Depends(require_auth_fastapi)):
     """
     POST /repos/connect
-    
-    Connect and link a GitHub repository to the NexusOps system.
-    
-    REQUIRES: Valid JWT token in Authorization header
-    Format: Authorization: Bearer {token}
-    
-    User context injected by @require_auth decorator:
-    - g.user_id: Authenticated user's UUID
-    - g.user_email: Authenticated user's email
-    
-    Request body:
-        {
-            "code": "github_oauth_code",
-            "repo_url": "https://github.com/owner/repo"
-        }
-    
-    VALIDATION FLOW:
-    1. Extract OAuth code and repo URL
-    2. Exchange code for GitHub access token
-    3. Verify user has access to repository
-    4. Check token has required scopes (repo, read:user)
-    5. Prevent duplicate repo linking (unique per user)
-    6. Store encrypted token in GitHubTokens table
-    
-    Returns:
-        StandardResponseEnvelope: {
-            "success": true,
-            "data": {
-                "user_id": "...",
-                "repo_url": "...",
-                "repo_name": "repo",
-                "repo_owner": "owner",
-                "connected": true,
-                "scopes": ["repo", "read:user"]
-            },
-            "error": null,
-            "meta": {"execution_id": "...", "stage": "ASK"}
-        }
-        
-    Error Cases:
-    - 400: Missing or invalid code/repo_url
-    - 401: GitHub authentication failure
-    - 403: User lacks access to repository
-    - 409: Repository already linked to another user
-    - 500: Internal error
+    Connect and link a GitHub repository.
     """
     execution_id = generate_execution_id()
     
     try:
-        # Parse request body
-        body = request.get_json() or {}
+        body = await request.json()
         code = body.get('code')
         repo_url = body.get('repo_url')
         
-        # Validate inputs
-        if not code or not isinstance(code, str):
-            response = create_error_response(
-                error_message="GitHub OAuth code is required",
-                error_code="VALIDATION_ERROR",
-                execution_id=execution_id
-            )
-            return response, 400
+        if not code or not repo_url:
+            raise HTTPException(status_code=400, detail="code and repo_url are required")
         
-        if not repo_url or not isinstance(repo_url, str):
-            response = create_error_response(
-                error_message="Repository URL is required",
-                error_code="VALIDATION_ERROR",
-                execution_id=execution_id
-            )
-            return response, 400
-        
-        # Validate repo_url format
-        if not repo_url.startswith('https://github.com/'):
-            response = create_error_response(
-                error_message="Invalid repository URL format",
-                error_code="VALIDATION_ERROR",
-                execution_id=execution_id
-            )
-            return response, 400
-        
-        # Attempt GitHub integration
-        import logging
-        logger = logging.getLogger(__name__)
-        
-        user_id = g.user_id
-        logger.info(f"Connecting repo {repo_url} for user {user_id} (execution_id: {execution_id})")
-        
-        # Perform GitHub connection
         connection_result = github_service.connect_repository(
             user_id=user_id,
             code=code,
             repo_url=repo_url
         )
         
-        response = create_success_response(
+        return create_success_response_fastapi(
             data={
                 'user_id': connection_result.get('user_id'),
                 'repo_url': connection_result.get('repo_url'),
@@ -186,38 +105,20 @@ def connect_repo():
             },
             execution_id=execution_id
         )
-        return response, 201
     
     except ValueError as e:
-        # Validation or GitHub error
         error_msg = str(e)
-        logger = logging.getLogger(__name__)
-        logger.warning(f"Repository connection validation error: {error_msg}")
-        
-        # Determine HTTP status based on error type
         status_code = 400
-        if "access" in error_msg.lower():
-            status_code = 403
-        elif "already linked" in error_msg.lower():
-            status_code = 409
-        elif "unauthorized" in error_msg.lower() or "authentication" in error_msg.lower():
-            status_code = 401
+        if "access" in error_msg.lower(): status_code = 403
+        elif "already linked" in error_msg.lower(): status_code = 409
+        elif "unauthorized" in error_msg.lower(): status_code = 401
         
-        response = create_error_response(
+        return create_error_response_fastapi(
             error_message=error_msg,
             error_code="REPO_CONNECT_ERROR",
             execution_id=execution_id
         )
-        return response, status_code
     
     except Exception as e:
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.error(f"Unexpected error connecting repository: {str(e)}")
-        
-        response = create_error_response(
-            error_message="Failed to connect repository",
-            error_code="INTERNAL_ERROR",
-            execution_id=execution_id
-        )
-        return response, 500
+        logger.error(f"Error connecting repo for {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Internal server error")

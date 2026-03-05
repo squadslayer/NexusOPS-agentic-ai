@@ -148,6 +148,24 @@ def create_error_response(
         meta=ResponseMeta(execution_id=execution_id, stage=stage)
     )
 
+def create_success_response_fastapi(
+    data: Dict[str, Any],
+    execution_id: str,
+    stage: str = "ASK"
+) -> Dict[str, Any]:
+    """FastAPI-compatible success response."""
+    return create_success_response(data, execution_id, stage).to_dict()
+
+def create_error_response_fastapi(
+    error_message: str,
+    error_code: str,
+    execution_id: str,
+    stage: str = "ASK",
+    details: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """FastAPI-compatible error response."""
+    return create_error_response(error_message, error_code, execution_id, stage, details).to_dict()
+
 
 # ---------------------------------------------------------------------------
 # Specific AWS error-code → consumer-safe message mapping  (Track 6)

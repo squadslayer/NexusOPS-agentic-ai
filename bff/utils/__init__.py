@@ -8,6 +8,8 @@ from .response_envelope import (
     ResponseMeta,
     create_success_response,
     create_error_response,
+    create_success_response_fastapi,
+    create_error_response_fastapi,
     mask_aws_error
 )
 from .auth_utils import (
@@ -26,6 +28,8 @@ __all__ = [
     'ResponseMeta',
     'create_success_response',
     'create_error_response',
+    'create_success_response_fastapi',
+    'create_error_response_fastapi',
     'mask_aws_error',
     'encode_jwt',
     'decode_jwt',

@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { Command } from 'lucide-react';
 
 export function Footer() {
@@ -19,30 +20,17 @@ export function Footer() {
                 <div className="col-span-6 md:col-span-2 md:col-start-7">
                     <h4 className="text-text-primary font-medium mb-4">Platform</h4>
                     <ul className="space-y-3">
-                        <li><a href="#" className="hover:text-text-primary transition-colors">Compute</a></li>
-                        <li><a href="#" className="hover:text-text-primary transition-colors">Storage</a></li>
-                        <li><a href="#" className="hover:text-text-primary transition-colors">Database</a></li>
-                        <li><a href="#" className="hover:text-text-primary transition-colors">Network</a></li>
+                        <li><Link href="/architecture" className="hover:text-text-primary transition-colors">Architecture</Link></li>
+                        <li><Link href="/features" className="hover:text-text-primary transition-colors">Features</Link></li>
+                        <li><Link href="/security" className="hover:text-text-primary transition-colors">Security</Link></li>
+                        <li><a href="http://localhost:3000/dashboard" className="hover:text-text-primary transition-colors">Open Dashboard</a></li>
                     </ul>
                 </div>
 
                 <div className="col-span-6 md:col-span-2">
-                    <h4 className="text-text-primary font-medium mb-4">Resources</h4>
+                    <h4 className="text-text-primary font-medium mb-4">Connect</h4>
                     <ul className="space-y-3">
-                        <li><a href="#" className="hover:text-text-primary transition-colors">Documentation</a></li>
-                        <li><a href="#" className="hover:text-text-primary transition-colors">API Reference</a></li>
-                        <li><a href="#" className="hover:text-text-primary transition-colors">Blog</a></li>
-                        <li><a href="#" className="hover:text-text-primary transition-colors">Community</a></li>
-                    </ul>
-                </div>
-
-                <div className="col-span-6 md:col-span-2">
-                    <h4 className="text-text-primary font-medium mb-4">Company</h4>
-                    <ul className="space-y-3">
-                        <li><a href="#" className="hover:text-text-primary transition-colors">About</a></li>
-                        <li><a href="#" className="hover:text-text-primary transition-colors">Customers</a></li>
-                        <li><a href="#" className="hover:text-text-primary transition-colors">Careers</a></li>
-                        <li><a href="#" className="hover:text-text-primary transition-colors">Trust Center</a></li>
+                        <li><Link href="https://github.com/squadslayer/NexusOPS-agentic-ai" className="hover:text-text-primary transition-colors">GitHub Repository</Link></li>
                     </ul>
                 </div>
             </div>
