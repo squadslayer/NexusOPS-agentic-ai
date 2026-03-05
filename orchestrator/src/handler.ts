@@ -16,13 +16,15 @@
 
 import { Execution, ExecutionRequest, ExecutionStatus } from "./models/execution";
 import { Stage, isValidTransition } from "./models/stages";
-import { LocalMemoryRepository } from "./services/executionRepository";
+import { StageResult } from "./models/stageResult";
+import { LocalMemoryRepository, repository } from "./services/executionRepository";
 import { LoggingService } from "./services/loggingService";
 import { dispatchStage } from "./stageDispatcher";
+import { markExpired } from "./services/approvalRepository";
 import { successResponse, errorResponse, OrchestratorResponse } from "./utils/response";
 import { OrchestratorError, InvalidStageTransition } from "./utils/errors";
 
-const repository = new LocalMemoryRepository();
+// Use the shared singleton repository instance
 const logger = new LoggingService();
 
 /**
@@ -103,8 +105,20 @@ export async function handler(
         const updated = await repository.updateExecutionConditional(
             execution.execution_id,
             execution.version,
-            { stage: result.nextStage, status: newStatus }
+            { stage: result.nextStage, status: newStatus, input: result.output as Record<string, unknown> }
         );
+
+        // ── ORPHAN APPROVAL PREVENTION ──
+        // If transitioning to ACT or FAILED, ensure no PENDING approval record is left behind.
+        if (updated.stage === Stage.ACT || updated.stage === Stage.FAILED) {
+            const approvalId = (execution.input as Record<string, any>)?.approval_id ||
+                (result.output as Record<string, any>)?.approval_id;
+            if (approvalId) {
+                await markExpired(approvalId).catch(err =>
+                    console.warn(`[ORPHAN CLEANUP FAILED] approval_id: ${approvalId}`, err)
+                );
+            }
+        }
 
         // ── NON-BLOCKING LOGGING ──
         // Async errors remain observable but never halt execution.
@@ -141,27 +155,125 @@ export async function handler(
 }
 
 /**
- * Direct invocation for Phase-4 validation.
+ * Direct invocation for Phase-8 validation.
  * Run with: npm start
+ *
+ * Drives the complete agentic lifecycle from ASK to COMPLETED.
+ * Injects a test execution plan into the input after the APPROVAL stage
+ * so ACT and VERIFY can run fully in the local (non-AWS) environment.
  */
 async function main() {
-    console.log("=== NexusOPS Orchestrator — Phase-4 Validation ===\n");
+    console.log("=== NexusOPS Orchestrator — Phase-8 Validation ===\n");
 
     const request: ExecutionRequest = {
-        execution_id: "exec-001",
+        execution_id: "exec-phase8",
         user_id: "user-nexus",
         repo_id: "repo-alpha",
+        // Seed query so RETRIEVE has something to work with
+        input: { query: "Update deployment configuration for production" },
     };
 
-    console.log("Step 1: Trigger execution (ASK → RETRIEVE)...\n");
+    // ── Step 1: ASK → RETRIEVE ──
+    console.log("--- Step 1: ASK → RETRIEVE ---");
     const r1 = await handler(request);
-    console.log("\n[ASK Result]:", JSON.stringify(r1, null, 2));
+    console.log("[ASK Result]:", JSON.stringify(r1, null, 2));
 
-    console.log("\n--- Step 2: Continue execution (RETRIEVE → REASON)... ---\n");
+    // ── Step 2: RETRIEVE → REASON ──
+    console.log("\n--- Step 2: RETRIEVE → REASON ---");
     const r2 = await handler(request);
-    console.log("\n[RETRIEVE Result]:", JSON.stringify(r2, null, 2));
+    console.log("[RETRIEVE Result]:", JSON.stringify(r2, null, 2));
 
-    console.log("\n=== Phase-4 Validation Complete ===");
+    // ── Step 3: REASON → CONSTRAINT ──
+    console.log("\n--- Step 3: REASON → CONSTRAINT ---");
+    const r3 = await handler(request);
+    console.log("[REASON Result]:", JSON.stringify(r3, null, 2));
+
+    // ── Step 4: CONSTRAINT → APPROVAL_PENDING ──
+    console.log("\n--- Step 4: CONSTRAINT → APPROVAL_PENDING ---");
+    const r4 = await handler(request);
+    console.log("[CONSTRAINT Result]:", JSON.stringify(r4, null, 2));
+
+    // ── Step 5: APPROVAL_PENDING (check / notify) ──
+    console.log("\n--- Step 5: APPROVAL_PENDING ---");
+    const r5 = await handler(request);
+    console.log("[APPROVAL Result]:", JSON.stringify(r5, null, 2));
+
+    // ── Inject a validated_plan directly into execution input ──
+    // This bypasses Bedrock + constraint evaluation for Phase-8 local testing.
+    // In production, the plan flows naturally through REASON → CONSTRAINT → APPROVAL → ACT.
+    {
+        const execution = await repository.getExecution(request.execution_id);
+
+        // Only inject if execution is in APPROVAL_PENDING or ACT (plan not already present)
+        const currentInput = (execution.input ?? {}) as Record<string, unknown>;
+        if (!currentInput.validated_plan) {
+            await repository.updateExecutionConditional(
+                execution.execution_id,
+                execution.version,
+                {
+                    input: {
+                        ...currentInput,
+                        validated_plan: {
+                            objective: "Update deployment configuration for production",
+                            estimated_risk: "low",
+                            steps: [
+                                {
+                                    step_id: 1,
+                                    tool: "update_file",
+                                    action: "Update deploy config",
+                                    parameters: { file: "src/deploy/config.ts" },
+                                    expected_output: "Config updated",
+                                    risk_level: "low",
+                                },
+                                {
+                                    step_id: 2,
+                                    tool: "create_file",
+                                    action: "Create deployment manifest",
+                                    parameters: { file: "src/deploy/manifest.yaml" },
+                                    expected_output: "Manifest created",
+                                    risk_level: "low",
+                                },
+                                {
+                                    step_id: 3,
+                                    tool: "run_ci",
+                                    action: "Run deployment pipeline",
+                                    parameters: { pipeline: "deploy-production" },
+                                    expected_output: "Pipeline triggered",
+                                    risk_level: "low",
+                                },
+                            ],
+                        },
+                    },
+                }
+            );
+            console.log("\n[HANDLER] Test plan injected into execution input for Phase-8 local validation.");
+        }
+    }
+
+    // ── Step 6: ACT → VERIFY ──
+    console.log("\n--- Step 6: ACT → VERIFY ---");
+    const r6 = await handler(request);
+    console.log("[ACT Result]:", JSON.stringify(r6, null, 2));
+
+    // ── Step 7: VERIFY → COMPLETED ──
+    console.log("\n--- Step 7: VERIFY → COMPLETED ---");
+    const r7 = await handler(request);
+    console.log("[VERIFY Result]:", JSON.stringify(r7, null, 2));
+
+    // ── Summary ──
+    const finalExecution = await repository.getExecution(request.execution_id).catch(() => null);
+    console.log("\n=== Phase-8 Validation Complete ===");
+    console.log(`Final stage: ${finalExecution?.stage ?? "unknown"}`);
+    console.log(`Final status: ${finalExecution?.status ?? "unknown"}`);
+
+    if (finalExecution?.stage !== "COMPLETED") {
+        console.error("❌ Phase-8 validation FAILED — execution did not reach COMPLETED");
+        process.exit(1);
+    }
+    console.log("✅ Phase-8 validation PASSED — full lifecycle reached COMPLETED");
 }
 
-main().catch(console.error);
+if (require.main === module) {
+    main().catch(console.error);
+}
+

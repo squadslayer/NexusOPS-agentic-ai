@@ -96,3 +96,8 @@ export class LocalMemoryRepository implements IExecutionRepository {
         return { ...updated };
     }
 }
+
+/**
+ * Shared singleton instance for local development and testing.
+ */
+export const repository = new LocalMemoryRepository();

@@ -19,7 +19,6 @@ from functools import wraps
 import uuid
 from flask import request, g
 
-
 def _generate_execution_id() -> str:
     """Local copy to avoid circular import with middleware.error_handler."""
     return str(uuid.uuid4())

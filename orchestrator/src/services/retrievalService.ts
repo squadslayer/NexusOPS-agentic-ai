@@ -40,6 +40,8 @@ import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
 
 import { Readable } from "stream";
+import * as fs from "fs";
+import * as path from "path";
 import { RetrievalResult } from "../models/retrieval";
 
 const MAX_CHUNKS = 5;
@@ -56,11 +58,16 @@ const bedrock = new BedrockAgentRuntimeClient({ region });
 const s3 = new S3Client({ region });
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region }));
 
-type RetrievalMode = "bedrock" | "s3" | "mock";
+type RetrievalMode = "bedrock" | "s3" | "local" | "mock";
 
-function resolveMode(): RetrievalMode {
+function resolveMode(repoId: string): RetrievalMode {
     if (knowledgeBaseId && knowledgeBaseId !== "kb-xxxxx") return "bedrock";
     if (s3Bucket) return "s3";
+
+    // Check if local context exists in the context/ directory
+    const localContextPath = path.join(__dirname, "../../context", `${repoId}.json`);
+    if (fs.existsSync(localContextPath)) return "local";
+
     return "mock";
 }
 
@@ -76,8 +83,8 @@ function resolveMode(): RetrievalMode {
  *   6. Store chunks in ContextChunks (DynamoDB or in-memory) with 24h TTL
  *   7. Return chunk references + metrics
  */
-export async function retrieveContext(query: string): Promise<RetrievalResult> {
-    const mode = resolveMode();
+export async function retrieveContext(query: string, repoId: string): Promise<RetrievalResult> {
+    const mode = resolveMode(repoId);
     const startTime = Date.now();
 
     console.info(JSON.stringify({ event: "retrieval_mode_selected", mode }));
@@ -86,13 +93,16 @@ export async function retrieveContext(query: string): Promise<RetrievalResult> {
 
     switch (mode) {
         case "bedrock":
-            rawChunks = await bedrockRetrieve(query);
+            rawChunks = await bedrockRetrieve(query, repoId);
             break;
         case "s3":
-            rawChunks = await s3Retrieve(query);
+            rawChunks = await s3Retrieve(query, repoId);
+            break;
+        case "local":
+            rawChunks = await localRetrieve(query, repoId);
             break;
         default:
-            rawChunks = await mockRetrieve(query);
+            rawChunks = await mockRetrieve(query, repoId);
             break;
     }
 
@@ -133,6 +143,7 @@ export async function retrieveContext(query: string): Promise<RetrievalResult> {
     console.info(JSON.stringify({
         event: "RETRIEVAL_COMPLETE",
         mode,
+        repo_id: repoId,
         query,
         chunks: chunkRefs.length,
         latency_ms: latencyMs,
@@ -148,9 +159,10 @@ export async function retrieveContext(query: string): Promise<RetrievalResult> {
 // ── BEDROCK ADAPTER ──────────────────────────────────────────────
 
 async function bedrockRetrieve(
-    query: string
+    query: string,
+    repoId: string
 ): Promise<Array<{ content: string; source: string; score: number }>> {
-    console.log(`[RETRIEVAL] Calling Bedrock KB: ${knowledgeBaseId}`);
+    console.log(`[RETRIEVAL] Calling Bedrock KB: ${knowledgeBaseId} for repo: ${repoId}`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), RETRIEVAL_TIMEOUT_MS);
@@ -160,6 +172,7 @@ async function bedrockRetrieve(
             new RetrieveCommand({
                 knowledgeBaseId: knowledgeBaseId!,
                 retrievalQuery: { text: query },
+                // Note: Bedrock filtering by repoId would be applied here in future updates
             }),
             { abortSignal: controller.signal }
         );
@@ -179,9 +192,10 @@ async function bedrockRetrieve(
 // ── S3 ADAPTER ───────────────────────────────────────────────────
 
 async function s3Retrieve(
-    _query: string
+    _query: string,
+    repoId: string
 ): Promise<Array<{ content: string; source: string; score: number }>> {
-    console.log(`[RETRIEVAL] Fetching documents from S3: ${s3Bucket}`);
+    console.log(`[RETRIEVAL] Fetching documents from S3: ${s3Bucket} for repo: ${repoId}`);
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), RETRIEVAL_TIMEOUT_MS);
@@ -234,13 +248,14 @@ async function streamToString(stream: Readable): Promise<string> {
 // ── MOCK ADAPTER ─────────────────────────────────────────────────
 
 async function mockRetrieve(
-    query: string
+    query: string,
+    repoId: string
 ): Promise<Array<{ content: string; source: string; score: number }>> {
-    console.log(`[RETRIEVAL] Using MOCK retrieval (no KB_ID or S3_BUCKET configured)`);
+    console.log(`[RETRIEVAL] Using MOCK retrieval for repo: ${repoId}`);
 
     return [
         {
-            content: `Relevant context for query: "${query}" — Infrastructure provisioning best practices for cloud-native deployments.`,
+            content: `Relevant context from repo ${repoId} for query: "${query}" — Infrastructure provisioning best practices for cloud-native deployments.`,
             source: "infra-guide.pdf",
             score: 0.95,
         },
@@ -255,6 +270,41 @@ async function mockRetrieve(
             score: 0.82,
         },
     ];
+}
+
+// ── LOCAL ADAPTER ───────────────────────────────────────────────
+
+async function localRetrieve(
+    query: string,
+    repoId: string
+): Promise<Array<{ content: string; source: string; score: number }>> {
+    console.log(`[RETRIEVAL] Using LOCAL retrieval for repo: ${repoId}`);
+
+    try {
+        const localContextPath = path.join(__dirname, "../../context", `${repoId}.json`);
+        const data = JSON.parse(fs.readFileSync(localContextPath, "utf-8"));
+
+        return [
+            {
+                content: `Repository Structure for ${repoId}: ${JSON.stringify(data.structure)}`,
+                source: "local-extraction:structure",
+                score: 0.99
+            },
+            {
+                content: `Tech Stack: ${JSON.stringify(data.tech_stack)}. Key Components: ${data.key_components.join(", ")}`,
+                source: "local-extraction:stack",
+                score: 0.95
+            },
+            {
+                content: `Extracted Context Summary: This repository is a ${data.name}. Query: "${query}"`,
+                source: "local-extraction:summary",
+                score: 0.85
+            }
+        ];
+    } catch (err) {
+        console.warn(`[RETRIEVAL] Failed to read local context for ${repoId}, falling back to mock`, err);
+        return mockRetrieve(query, repoId);
+    }
 }
 
 // ── SHARED UTILITIES ─────────────────────────────────────────────
