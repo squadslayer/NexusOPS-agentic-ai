@@ -2,6 +2,8 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from bff.middleware import generate_execution_id, require_auth_fastapi
 from bff.utils import create_success_response_fastapi, create_error_response_fastapi
 from bff.services.github_service import github_service
+from bff.repositories.repo_repository import RepoRepository
+from bff.models.repository import Repository, RepositoryStatus
 import logging
 
 logger = logging.getLogger(__name__)
@@ -30,35 +32,24 @@ async def authorize_github(user_id: str = Depends(require_auth_fastapi)):
 async def get_repos(request: Request, user_id: str = Depends(require_auth_fastapi)):
     """
     GET /repos
-    Fetch all repositories accessible to the user.
+    Fetch all CONNECTED repositories for the user from DynamoDB.
     """
     execution_id = generate_execution_id()
+    repo_repo = RepoRepository()
     
     try:
-        # Try to get the real user_id from the JWT (AUTH_BYPASS gives "local-dev-user")
-        actual_user_id = user_id
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            try:
-                import jwt as pyjwt
-                from bff import config
-                token = auth_header.split(" ", 1)[1]
-                payload = pyjwt.decode(token, config.JWT_SECRET, algorithms=[config.JWT_ALGORITHM])
-                actual_user_id = payload.get("user_id") or payload.get("sub") or user_id
-            except Exception:
-                pass  # Fall back to the auth-injected user_id
-
-        repos = github_service.get_user_repos(actual_user_id)
+        # Fetch from persistent storage
+        connected_repos = repo_repo.get_user_repositories(user_id)
         
         simplified_repos = [
             {
-                "id": r.get("id"),
-                "name": r.get("name"),
-                "full_name": r.get("full_name"),
-                "html_url": r.get("html_url"),
-                "private": r.get("private"),
-                "permissions": r.get("permissions", {})
-            } for r in repos
+                "id": r.repo_id,
+                "name": r.repo_name,
+                "full_name": r.repo_name, # In this context
+                "html_url": r.repo_url,
+                "status": r.status,
+                "connected_at": r.connected_at.isoformat()
+            } for r in connected_repos
         ]
         
         return create_success_response_fastapi(
@@ -67,8 +58,37 @@ async def get_repos(request: Request, user_id: str = Depends(require_auth_fastap
         )
         
     except Exception as e:
-        logger.error(f"Error fetching repos for {user_id}: {str(e)}")
+        logger.error(f"Error fetching connected repos for {user_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to fetch repositories")
+
+@router.get("/available")
+async def get_available_repos(user_id: str = Depends(require_auth_fastapi)):
+    """
+    GET /repos/available
+    Fetch all repositories accessible to the user from GitHub API.
+    """
+    execution_id = generate_execution_id()
+    
+    try:
+        repos = github_service.get_user_repos(user_id)
+        
+        simplified_repos = [
+            {
+                "id": str(r.get("id")),
+                "name": r.get("name"),
+                "full_name": r.get("full_name"),
+                "html_url": r.get("html_url"),
+                "private": r.get("private")
+            } for r in repos
+        ]
+        
+        return create_success_response_fastapi(
+            data={"repositories": simplified_repos},
+            execution_id=execution_id
+        )
+    except Exception as e:
+        logger.error(f"Error fetching available repos for {user_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch available repositories")
 
 
 @router.post("/connect")
@@ -84,23 +104,33 @@ async def connect_repo(request: Request, user_id: str = Depends(require_auth_fas
         code = body.get('code')
         repo_url = body.get('repo_url')
         
-        if not code or not repo_url:
-            raise HTTPException(status_code=400, detail="code and repo_url are required")
+        if not repo_url:
+            raise HTTPException(status_code=400, detail="repo_url is required")
         
         connection_result = github_service.connect_repository(
             user_id=user_id,
-            code=code,
-            repo_url=repo_url
+            repo_url=repo_url,
+            code=code
         )
+
+        # PERSIST connection in Repositories table
+        repo_repo = RepoRepository()
+        repo_data = Repository(
+            user_id=user_id,
+            repo_id=str(connection_result.get('repo_id', hash(repo_url))), # fallback if id missing
+            repo_name=connection_result.get('repo_name'),
+            repo_url=repo_url,
+            default_branch="main", # Should ideally come from repo_info
+            status=RepositoryStatus.READY
+        )
+        repo_repo.store_repository(repo_data)
         
         return create_success_response_fastapi(
             data={
-                'user_id': connection_result.get('user_id'),
-                'repo_url': connection_result.get('repo_url'),
+                'user_id': user_id,
+                'repo_url': repo_url,
                 'repo_name': connection_result.get('repo_name'),
-                'repo_owner': connection_result.get('repo_owner'),
-                'connected': connection_result.get('connected'),
-                'scopes': connection_result.get('scopes'),
+                'connected': True,
                 'message': 'Repository connected successfully'
             },
             execution_id=execution_id

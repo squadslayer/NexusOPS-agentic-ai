@@ -1,25 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RepoCard } from "@/components/github/RepoCard";
 import { useRepositories } from "@/hooks/useRepositories";
 import { ShieldCheckIcon, CloudArrowDownIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
 
 export function RepoList() {
-    const { repositories, isLoading, error, connectRepo } = useRepositories();
+    const { availableRepos, isLoading, error, connectRepo, fetchAvailable } = useRepositories();
     const [connectingRepoId, setConnectingRepoId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
 
-    const handleConnect = async (id: string) => {
-        setConnectingRepoId(id);
+    useEffect(() => {
+        fetchAvailable();
+    }, [fetchAvailable]);
+
+    const handleConnect = async (repo: any) => {
+        setConnectingRepoId(repo.id);
         try {
-            await connectRepo(id);
+            await connectRepo(repo.html_url, ""); // code is optional now
+        } catch (err) {
+            console.error("Failed to connect repo:", err);
         } finally {
             setConnectingRepoId(null);
         }
     };
 
-    const filteredRepos = repositories.filter(repo =>
+    const filteredRepos = availableRepos.filter(repo =>
         repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.full_name.toLowerCase().includes(searchQuery.toLowerCase())
     );
@@ -83,7 +89,7 @@ export function RepoList() {
                         <RepoCard
                             key={repo.id}
                             repo={repo}
-                            onConnect={handleConnect}
+                            onConnect={() => handleConnect(repo)}
                             isConnecting={connectingRepoId === repo.id}
                         />
                     ))

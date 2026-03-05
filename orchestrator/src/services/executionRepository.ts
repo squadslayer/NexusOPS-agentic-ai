@@ -18,6 +18,18 @@
 
 import { Execution, ExecutionRequest, createExecution } from "../models/execution";
 import { ConcurrencyConflict, ExecutionNotFound } from "../utils/errors";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import {
+    DynamoDBDocumentClient,
+    GetCommand,
+    PutCommand,
+    UpdateCommand
+} from "@aws-sdk/lib-dynamodb";
+
+const EXECUTION_TABLE = "ExecutionRecords";
+const region = process.env.AWS_REGION ?? "us-east-1";
+const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region }));
+
 
 /**
  * Fields that are immutable after creation — never passed in updates.
@@ -25,14 +37,16 @@ import { ConcurrencyConflict, ExecutionNotFound } from "../utils/errors";
 type ImmutableFields = "execution_id" | "user_id" | "repo_id" | "created_at";
 
 export interface IExecutionRepository {
-    getExecution(executionId: string): Promise<Execution>;
+    getExecution(userId: string, executionId: string): Promise<Execution>;
     createExecution(request: ExecutionRequest): Promise<Execution>;
     updateExecutionConditional(
+        userId: string,
         executionId: string,
         expectedVersion: number,
         updates: Partial<Omit<Execution, ImmutableFields>>
     ): Promise<Execution>;
 }
+
 
 /**
  * In-memory implementation for Phase-3 validation.
@@ -45,8 +59,9 @@ export class LocalMemoryRepository implements IExecutionRepository {
      * Retrieves an execution record.
      * Throws ExecutionNotFound if the record does not exist.
      */
-    async getExecution(executionId: string): Promise<Execution> {
+    async getExecution(userId: string, executionId: string): Promise<Execution> {
         const record = this.store.get(executionId);
+
         if (!record) {
             throw new ExecutionNotFound(executionId);
         }
@@ -71,10 +86,12 @@ export class LocalMemoryRepository implements IExecutionRepository {
      * are enforced by the handler layer.
      */
     async updateExecutionConditional(
+        userId: string,
         executionId: string,
         expectedVersion: number,
         updates: Partial<Omit<Execution, ImmutableFields>>
     ): Promise<Execution> {
+
         const existing = this.store.get(executionId);
 
         if (!existing) {
@@ -98,6 +115,99 @@ export class LocalMemoryRepository implements IExecutionRepository {
 }
 
 /**
- * Shared singleton instance for local development and testing.
+ * DynamoDB implementation for production persistence.
  */
-export const repository = new LocalMemoryRepository();
+export class DynamoRepository implements IExecutionRepository {
+    async getExecution(userId: string, executionId: string): Promise<Execution> {
+        const result = await dynamo.send(new GetCommand({
+            TableName: EXECUTION_TABLE,
+            Key: { user_id: userId, execution_id: executionId }
+        }));
+
+        if (!result.Item) {
+            throw new ExecutionNotFound(executionId);
+        }
+
+        return result.Item as Execution;
+    }
+
+    async createExecution(request: ExecutionRequest): Promise<Execution> {
+        const execution = createExecution(request);
+
+        await dynamo.send(new PutCommand({
+            TableName: EXECUTION_TABLE,
+            Item: { ...execution },
+            // Ensure we don't overwrite if it somehow exists
+            ConditionExpression: "attribute_not_exists(user_id) AND attribute_not_exists(execution_id)"
+        }));
+
+        return execution;
+    }
+
+    async updateExecutionConditional(
+        userId: string,
+        executionId: string,
+        expectedVersion: number,
+        updates: Partial<Omit<Execution, ImmutableFields>>
+    ): Promise<Execution> {
+        const now = new Date().toISOString();
+        const nextVersion = expectedVersion + 1;
+
+        // Construct UpdateExpression dynamically
+        const updateKeys = Object.keys(updates);
+        let updateExpression = "SET #version = :v, updated_at = :now";
+        const expressionAttributeValues: Record<string, any> = {
+            ":v": nextVersion,
+            ":now": now,
+            ":expected": expectedVersion
+        };
+        const expressionAttributeNames: Record<string, string> = {
+            "#version": "version"
+        };
+
+        updateKeys.forEach(key => {
+            const val = (updates as any)[key];
+            if (val !== undefined) {
+                let attrLabel = key;
+                if (key === "status") {
+                    attrLabel = "#status";
+                    expressionAttributeNames["#status"] = "status";
+                } else if (key === "input") {
+                    attrLabel = "#input";
+                    expressionAttributeNames["#input"] = "input";
+                }
+                updateExpression += `, ${attrLabel} = :${key}`;
+                expressionAttributeValues[`:${key}`] = val;
+            }
+        });
+
+        const updateParams = {
+            TableName: EXECUTION_TABLE,
+            Key: { user_id: userId, execution_id: executionId },
+            UpdateExpression: updateExpression,
+            ConditionExpression: "#version = :expected",
+            ExpressionAttributeValues: expressionAttributeValues,
+            ExpressionAttributeNames: expressionAttributeNames,
+            ReturnValues: "ALL_NEW" as const
+        };
+
+        let result;
+        try {
+            result = await dynamo.send(new UpdateCommand(updateParams));
+        } catch (e: any) {
+            console.error("[DYNAMO VALIDATION ERROR]", e.name, e.message);
+            throw e;
+        }
+
+        if (!result.Attributes) {
+            throw new ConcurrencyConflict(executionId, expectedVersion);
+        }
+
+        return result.Attributes as Execution;
+    }
+}
+
+// Use DynamoRepository for persistent execution state
+export const repository = new DynamoRepository();
+
+

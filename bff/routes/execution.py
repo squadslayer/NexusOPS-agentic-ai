@@ -3,8 +3,9 @@ from bff.middleware import generate_execution_id, require_auth_fastapi
 from bff.utils import create_success_response_fastapi, create_error_response_fastapi
 from bff.services.orchestrator_client import invoke_orchestrator
 from bff.services.github_service import github_service
+from bff.repositories.execution_repository import ExecutionRepository
+from bff.models.execution import ExecutionRecord, ExecutionStatus
 from bff import config
-import boto3
 import logging
 
 logger = logging.getLogger(__name__)
@@ -48,62 +49,64 @@ async def start_execution(request: Request, user_id: str = Depends(require_auth_
             execution_id=execution_id
         )
 
-    # Invoke the Orchestrator
-    envelope = invoke_orchestrator(
+    # Step 3: Create persistent execution record
+    exec_repo = ExecutionRepository()
+    record = ExecutionRecord(
         user_id=user_id,
+        execution_id=execution_id,
         repo_id=repo_id,
-        user_input=user_input,
+        status=ExecutionStatus.PENDING,
+        prompt=user_input.get("prompt", "")
     )
+    exec_repo.create_execution(record)
+    logger.info(f"Persistent execution record created: {execution_id}")
 
-    if not envelope.get("success", True):
+    # Step 4: Invoke the Orchestrator
+    try:
+        envelope = invoke_orchestrator(
+            user_id=user_id,
+            repo_id=repo_id,
+            user_input=user_input,
+        )
+    except Exception as e:
+        # Fail the execution in DB if invocation fails
+        exec_repo.update_execution_status(user_id, execution_id, ExecutionStatus.FAILED, {"error": str(e)})
         raise HTTPException(status_code=502, detail="Orchestrator invocation failed")
 
     return create_success_response_fastapi(
-        data=envelope.get("data", {}),
+        data={
+            "execution_id": execution_id,
+            "status": ExecutionStatus.PENDING,
+            "message": "Analysis started successfully"
+        },
         execution_id=execution_id,
         stage="ASK"
     )
 
 @router.get("/{id}")
-async def get_execution(id: str, user_id: str = Depends(require_auth_fastapi)):
+async def get_execution_route(id: str, user_id: str = Depends(require_auth_fastapi)):
     """GET /executions/{id}
-    Retrieve the status and details of an execution.
+    Retrieve the status and details of an execution using DAL.
     """
     execution_id = generate_execution_id()
+    exec_repo = ExecutionRepository()
     
     try:
-        dynamodb = boto3.resource(
-            "dynamodb",
-            region_name=config.AWS_REGION,
-            endpoint_url=config.DYNAMODB_ENDPOINT if config.DYNAMODB_ENDPOINT else None,
-        )
-        table = dynamodb.Table("ExecutionRecords")
+        record = exec_repo.get_execution(id)
         
-        response = table.get_item(Key={"execution_id": id})
-        item = response.get("Item")
-        
-        if not item:
+        if not record:
             return create_error_response_fastapi(
                 error_message="Execution record not found",
                 error_code="NOT_FOUND",
                 execution_id=execution_id,
             )
             
-        if item.get("user_id") != user_id:
+        if record.user_id != user_id:
             raise HTTPException(status_code=403, detail="Unauthorized access to execution record")
             
         return create_success_response_fastapi(
-            data={
-                "execution_id": item.get("execution_id"),
-                "user_id": item.get("user_id"),
-                "repo_id": item.get("repo_id"),
-                "stage": item.get("stage"),
-                "status": item.get("status"),
-                "created_at": item.get("created_at"),
-                "updated_at": item.get("updated_at")
-            },
-            execution_id=execution_id,
-            stage=item.get("stage")
+            data=record.model_dump(),
+            execution_id=execution_id
         )
         
     except Exception as e:

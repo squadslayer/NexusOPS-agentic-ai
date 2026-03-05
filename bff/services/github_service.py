@@ -11,6 +11,8 @@ from typing import Dict, Optional, Any, Tuple
 from datetime import datetime
 from bff import config
 from cryptography.fernet import Fernet
+from bff.repositories.token_repository import TokenRepository
+from bff.models.github_token import GithubToken
 
 logger = logging.getLogger(__name__)
 
@@ -307,6 +309,7 @@ class GitHubTokenStore:
             # Build record
             record = {
                 'user_id': user_id,
+                'repo_id': repo_url, # Use repo_url as repo_id if no specific ID provided
                 'repo_url': repo_url,
                 'encrypted_token': encrypted_token,
                 'repo_scope': repo_scope,
@@ -341,8 +344,9 @@ class GitHubTokenStore:
             Exception: If retrieval/decryption fails
         """
         try:
+            # Note: repo_url is used as repo_id in this legacy store method
             response = self.table.get_item(
-                Key={'user_id': user_id, 'repo_url': repo_url}
+                Key={'user_id': user_id, 'repo_id': repo_url}
             )
             
             item = response.get('Item')
@@ -421,49 +425,34 @@ class GitHubIntegrationService:
         """Initialize all GitHub services."""
         self.oauth_service = GitHubOAuthService()
         self.token_store = GitHubTokenStore()
+        self.token_repo = TokenRepository()
     
     def connect_repository(
         self,
         user_id: str,
-        code: str,
-        repo_url: str
+        repo_url: str,
+        code: str = None
     ) -> Dict[str, Any]:
         """
         Complete flow to connect a GitHub repository.
-        
-        INTEGRATION FLOW:
-        1. Exchange code for access_token
-        2. Validate repo access
-        3. Check token scopes
-        4. Check for duplicate linking
-        5. Store encrypted token
-        6. Return connection info
-        
-        Args:
-            user_id (str): Authenticated user ID
-            code (str): GitHub OAuth code
-            repo_url (str): Target repository URL
-            
-        Returns:
-            Dict: {
-                "user_id": "uuid",
-                "repo_url": "https://github.com/owner/repo",
-                "connected": true,
-                "scopes": ["repo", "read:user"],
-                "repo_info": {...}
-            }
-            
-        Raises:
-            Exception: If any step fails
+        Uses existing token if code is not provided.
         """
         try:
-            # Step 1: Exchange code for token
-            logger.info(f"Starting GitHub OAuth flow for user {user_id}")
-            token_result = self.oauth_service.exchange_code_for_token(code)
-            access_token = token_result.get('access_token')
+            access_token = None
+            if code:
+                # Step 1: Exchange code for token
+                logger.info(f"Starting GitHub OAuth flow for user {user_id}")
+                token_result = self.oauth_service.exchange_code_for_token(code)
+                access_token = token_result.get('access_token')
+            else:
+                # Try to get existing token
+                logger.info(f"Using existing token for user {user_id}")
+                token_obj = self.token_repo.get_any_token_for_user(user_id)
+                if token_obj:
+                    access_token = self.token_store.encryption_service.decrypt_token(token_obj.access_token_encrypted)
             
             if not access_token:
-                raise ValueError("No access token in OAuth response")
+                raise ValueError("No GitHub access token available. Please authenticate.")
             
             # Step 2: Validate repo access
             is_accessible, repo_info = self.oauth_service.validate_repository_access(
@@ -475,17 +464,8 @@ class GitHubIntegrationService:
             
             # Step 3: Get token scopes
             scopes = self.oauth_service.get_token_scopes(access_token)
-            required_scopes = {'repo', 'read:user'}
             
-            if not required_scopes.issubset(set(scopes)):
-                raise ValueError(f"Token missing required scopes. Required: {required_scopes}, Got: {scopes}")
-            
-            # Step 4: Check for duplicate
-            is_duplicate = self.token_store.check_repo_linked_to_other_user(repo_url, user_id)
-            if is_duplicate:
-                raise ValueError(f"Repository already linked to another user")
-            
-            # Step 5: Store encrypted token
+            # Step 4: Store encrypted token using the store
             self.token_store.store_token(
                 user_id=user_id,
                 access_token=access_token,
@@ -499,6 +479,7 @@ class GitHubIntegrationService:
                 "user_id": user_id,
                 "repo_url": repo_url,
                 "connected": True,
+                "repo_id": str(repo_info.get('id', '')),
                 "repo_name": repo_info.get('name', ''),
                 "repo_owner": repo_info.get('owner', {}).get('login', ''),
                 "scopes": scopes
@@ -510,38 +491,34 @@ class GitHubIntegrationService:
 
     def get_user_repos(self, user_id: str) -> list:
         """
-        Fetch all repositories accessible to the authenticated user.
-
-        Uses the stored GitHub access token for the user. If no token
-        is found (e.g. local dev with AUTH_BYPASS), returns an empty list.
-
-        Args:
-            user_id (str): NexusOps user ID
-
-        Returns:
-            list: List of repository dicts from the GitHub API
+        Fetch all repositories accessible to the authenticated user using the stored token.
         """
         try:
-            # Try to get any stored token for this user
-            # In local dev (AUTH_BYPASS) the user_id will be "local-dev-user"
-            # and there won't be a stored token — return empty list gracefully.
-            access_token = None
+            logger.info(f"[DEBUG] Fetching available repos for user_id: {user_id}")
+            # Try to get any stored token for this user from DynamoDB via Repo
+            token_obj = self.token_repo.get_any_token_for_user(user_id)
 
-            # Check if user has a stored token for any repo
-            # (We can't scan DynamoDB, so we try using the token from the session)
-            if hasattr(self, '_session_tokens') and user_id in self._session_tokens:
-                access_token = self._session_tokens[user_id]
+            if not token_obj:
+                logger.info(f"[DEBUG] No stored GitHub token found for user {user_id} — returning empty repo list")
+                return []
 
-            if not access_token:
-                logger.info(f"No GitHub token found for user {user_id} — returning empty repo list")
+            logger.info(f"[DEBUG] Found token for user {user_id} with repo_id {token_obj.repo_id}")
+
+            # Decrypt token using the store's service
+            try:
+                access_token = self.token_store.encryption_service.decrypt_token(token_obj.access_token_encrypted)
+            except Exception as e:
+                logger.error(f"[DEBUG] Token decryption failed for user {user_id}: {str(e)}")
                 return []
 
             # Call GitHub API to list user repos
             headers = {
                 'Authorization': f'Bearer {access_token}',
-                'Accept': 'application/vnd.github.v3+json'
+                'Accept': 'application/vnd.github.v3+json',
+                'User-Agent': 'NexusOps-BFF'
             }
 
+            logger.info(f"[DEBUG] Calling GitHub API /user/repos for user {user_id}")
             response = requests.get(
                 f"{self.oauth_service.api_base}/user/repos",
                 headers=headers,
@@ -551,22 +528,31 @@ class GitHubIntegrationService:
 
             if response.status_code == 200:
                 repos = response.json()
-                logger.info(f"Fetched {len(repos)} repos for user {user_id}")
+                logger.info(f"[DEBUG] Successfully fetched {len(repos)} repos from GitHub for user {user_id}")
                 return repos
             else:
-                logger.warning(f"GitHub API returned {response.status_code} for user repos")
+                logger.warning(f"[DEBUG] GitHub API returned status {response.status_code} for user {user_id}. Body: {response.text[:200]}")
                 return []
 
         except Exception as e:
-            logger.error(f"Error fetching repos for user {user_id}: {str(e)}")
+            logger.error(f"[DEBUG] Critical error in get_user_repos for user {user_id}: {str(e)}")
             return []
 
     def store_session_token(self, user_id: str, access_token: str):
-        """Store a GitHub access token in memory for the current session."""
-        if not hasattr(self, '_session_tokens'):
-            self._session_tokens = {}
-        self._session_tokens[user_id] = access_token
-        logger.debug(f"Session token stored for user {user_id}")
+        """
+        Persistence layer handle: stores the token in the database.
+        This replaces the in-memory _session_tokens hack.
+        """
+        # We use a dummy repo_id 'default' for session tokens linked to user profile
+        encrypted_token = self.token_store.encryption_service.encrypt_token(access_token)
+        token_data = GithubToken(
+            user_id=user_id,
+            repo_id="default",
+            repo_url="profile",
+            access_token_encrypted=encrypted_token
+        )
+        self.token_repo.store_token(token_data)
+        logger.debug(f"Persistent token stored for user {user_id}")
 
 
 # Create singleton instance

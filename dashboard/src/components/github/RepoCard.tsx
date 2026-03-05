@@ -35,36 +35,44 @@ export function RepoCard({ repo, onConnect, isConnecting = false }: RepoCardProp
             );
         }
 
-        switch (repo.ingestionStatus) {
-            case "COMPLETED":
+        switch (repo.status) {
+            case "READY":
                 return (
                     <span className="badge badge-success text-xs gap-1">
                         <CheckCircleIcon className="h-3 w-3" />
-                        Ingested
+                        Ready
                     </span>
                 );
-            case "PENDING":
+            case "INGESTING":
                 return (
                     <span className="badge badge-warning text-xs gap-1">
                         <ArrowPathIcon className="h-3 w-3 animate-spin" />
                         Ingesting
                     </span>
                 );
-            case "FAILED":
+            case "ERROR":
                 return (
                     <span className="badge badge-danger text-xs gap-1">
                         <XCircleIcon className="h-3 w-3" />
-                        Failed
+                        Error
+                    </span>
+                );
+            case "CONNECTING":
+                return (
+                    <span className="badge badge-warning text-xs gap-1">
+                        <ArrowPathIcon className="h-3 w-3 animate-spin" />
+                        Connecting
                     </span>
                 );
             default:
                 return (
                     <span className="badge badge-neutral text-xs text-textMuted">
-                        Status Unknown
+                        {repo.status || "Linked"}
                     </span>
                 );
         }
-    }, [repo.connected, repo.ingestionStatus]);
+    }, [repo.connected, repo.status]);
+
 
     return (
         <div className={`
@@ -92,9 +100,10 @@ export function RepoCard({ repo, onConnect, isConnecting = false }: RepoCardProp
 
                 {repo.connected && (
                     <p className="text-2xs text-textMuted">
-                        Last updated {repo.updatedAt ? formatDate(repo.updatedAt) : "N/A"}
+                        Connected {repo.connected_at ? formatDate(repo.connected_at) : "N/A"}
                     </p>
                 )}
+
             </div>
 
             {/* Actions */}
@@ -103,7 +112,8 @@ export function RepoCard({ repo, onConnect, isConnecting = false }: RepoCardProp
                     <button
                         type="button"
                         onClick={handleConnect}
-                        disabled={isConnecting || repo.ingestionStatus === "PENDING"}
+                        disabled={isConnecting || repo.status === "CONNECTING"}
+
                         className={`
                             btn btn-primary btn-sm flex items-center gap-1.5
                             ${isConnecting ? "opacity-75 cursor-not-allowed" : ""}

@@ -3,47 +3,38 @@
 import { useState, useCallback, useEffect } from "react";
 import { apiFetch } from "@/lib/api";
 
+
+
 export type Repository = {
     id: string;
     name: string;
     full_name: string;
     html_url: string;
-    private: boolean;
+    private?: boolean;
     connected?: boolean;
-    ingestionStatus?: "IDLE" | "PENDING" | "COMPLETED" | "FAILED";
-    updatedAt?: string;
+    status?: "CONNECTING" | "READY" | "INGESTING" | "ERROR";
+    connected_at?: string;
 };
 
 type UseRepositoriesReturn = {
     repositories: Repository[];
+    availableRepos: Repository[];
     isLoading: boolean;
     error: string | null;
-    connectRepo: (repoId: string) => Promise<void>;
+    connectRepo: (repoUrl: string, code: string) => Promise<void>;
+    fetchAvailable: () => Promise<void>;
+    fetchConnected: () => Promise<void>;
     refresh: () => Promise<void>;
 };
 
-// Helper to get/set connected repos from localStorage
-function getConnectedRepoIds(): string[] {
-    if (typeof window === "undefined") return [];
-    try {
-        return JSON.parse(localStorage.getItem("nexusops_connected_repos") || "[]");
-    } catch {
-        return [];
-    }
-}
-
-function saveConnectedRepoIds(ids: string[]) {
-    if (typeof window !== "undefined") {
-        localStorage.setItem("nexusops_connected_repos", JSON.stringify(ids));
-    }
-}
-
 export function useRepositories(): UseRepositoriesReturn {
     const [repositories, setRepositories] = useState<Repository[]>([]);
+    const [availableRepos, setAvailableRepos] = useState<Repository[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [error, setError] = useState<string | null>(null);
 
-    const fetchRepos = useCallback(async () => {
+    // 1. Fetch repos already connected to NexusOPS (from DynamoDB)
+    const fetchConnected = useCallback(async () => {
         setIsLoading(true);
         setError(null);
         try {
@@ -51,23 +42,30 @@ export function useRepositories(): UseRepositoriesReturn {
             const data = await res.json();
 
             if (!res.ok) {
-                throw new Error(data.detail || data.error || "Failed to fetch repositories");
+                throw new Error(data.detail || data.error || "Failed to fetch connected repositories");
             }
 
-            const fetched: Repository[] = data.data?.repositories || [];
-            const connectedIds = getConnectedRepoIds();
+            setRepositories(data.data?.repositories || []);
+        } catch (err) {
+            setError(err instanceof Error ? err.message : "An unexpected error occurred");
+        } finally {
+            setIsLoading(false);
+        }
+    }, []);
 
-            // Mark repos as connected if they are in localStorage
-            const enriched = fetched.map((r) => ({
-                ...r,
-                id: String(r.id),
-                connected: connectedIds.includes(String(r.id)),
-                ingestionStatus: connectedIds.includes(String(r.id))
-                    ? ("COMPLETED" as const)
-                    : ("IDLE" as const),
-            }));
+    // 2. Fetch all repos user has access to on GitHub (for connection flow)
+    const fetchAvailable = useCallback(async () => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            const res = await apiFetch("/repos/available");
+            const data = await res.json();
 
-            setRepositories(enriched);
+            if (!res.ok) {
+                throw new Error(data.detail || data.error || "Failed to fetch available repositories");
+            }
+
+            setAvailableRepos(data.data?.repositories || []);
         } catch (err) {
             setError(err instanceof Error ? err.message : "An unexpected error occurred");
         } finally {
@@ -76,35 +74,43 @@ export function useRepositories(): UseRepositoriesReturn {
     }, []);
 
     useEffect(() => {
-        fetchRepos();
-    }, [fetchRepos]);
+        fetchConnected();
+    }, [fetchConnected]);
 
     const connectRepo = useCallback(
-        async (repoId: string) => {
-            // Save the repo as "connected" in localStorage (simulates ingestion)
-            const connectedIds = getConnectedRepoIds();
-            if (!connectedIds.includes(repoId)) {
-                connectedIds.push(repoId);
-                saveConnectedRepoIds(connectedIds);
-            }
+        async (repoUrl: string, code: string) => {
+            setIsLoading(true);
+            try {
+                const res = await apiFetch("/repos/connect", {
+                    method: "POST",
+                    body: JSON.stringify({ repo_url: repoUrl, code }),
+                });
+                const data = await res.json();
 
-            // Update local state immediately
-            setRepositories((prev) =>
-                prev.map((r) =>
-                    String(r.id) === repoId
-                        ? { ...r, connected: true, ingestionStatus: "COMPLETED" as const }
-                        : r
-                )
-            );
+                if (!res.ok) {
+                    throw new Error(data.message || "Failed to connect repository");
+                }
+
+                // Refresh connected repos list
+                await fetchConnected();
+            } catch (err) {
+                setError(err instanceof Error ? err.message : "Connection failed");
+                throw err;
+            } finally {
+                setIsLoading(false);
+            }
         },
-        []
+        [fetchConnected]
     );
 
     return {
         repositories,
+        availableRepos,
         isLoading,
         error,
         connectRepo,
-        refresh: fetchRepos,
+        fetchAvailable,
+        fetchConnected,
+        refresh: fetchConnected,
     };
 }

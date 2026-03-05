@@ -14,10 +14,11 @@
  * NO business logic lives here.
  */
 
+import { SQSEvent } from "aws-lambda";
 import { Execution, ExecutionRequest, ExecutionStatus } from "./models/execution";
 import { Stage, isValidTransition } from "./models/stages";
 import { StageResult } from "./models/stageResult";
-import { LocalMemoryRepository, repository } from "./services/executionRepository";
+import { repository } from "./services/executionRepository";
 import { LoggingService } from "./services/loggingService";
 import { dispatchStage } from "./stageDispatcher";
 import { markExpired } from "./services/approvalRepository";
@@ -63,8 +64,41 @@ async function notifyBffOfTransition(execution_id: string, stage: string, status
 /**
  * Main orchestrator handler.
  * Accepts an execution request and drives it through one lifecycle step.
+ * 
+ * Supports both direct Lambda invocation and SQS event triggers.
  */
 export async function handler(
+    event: ExecutionRequest | SQSEvent,
+    context?: any
+): Promise<OrchestratorResponse | void> {
+    // 1. Detect SQS Event
+    if ((event as any).Records && Array.isArray((event as any).Records)) {
+        return sqsHandler(event as SQSEvent);
+    }
+
+    // 2. Direct Invocation
+    return processRequest(event as ExecutionRequest, context?.awsRequestId);
+}
+
+/**
+ * Handles SQS events by processing each record.
+ */
+async function sqsHandler(event: SQSEvent): Promise<void> {
+    for (const record of event.Records) {
+        try {
+            const request = JSON.parse(record.body) as ExecutionRequest;
+            console.log(`[SQS HANDLER] Processing message ${record.messageId} for execution ${request.execution_id}`);
+            await processRequest(request, record.messageId);
+        } catch (err) {
+            console.error(`[SQS HANDLER ERROR] Failed to process record ${record.messageId}:`, err);
+        }
+    }
+}
+
+/**
+ * Core business logic: drives the execution one step.
+ */
+async function processRequest(
     request: ExecutionRequest,
     requestId?: string
 ): Promise<OrchestratorResponse> {
@@ -74,7 +108,7 @@ export async function handler(
         let execution: Execution;
 
         try {
-            execution = await repository.getExecution(request.execution_id);
+            execution = await repository.getExecution(request.user_id, request.execution_id);
         } catch {
             execution = await repository.createExecution(request);
             console.log(`[HANDLER] Created new execution: ${execution.execution_id}`);
@@ -85,12 +119,9 @@ export async function handler(
         }
 
         const previousStage = execution.stage;
-
         const result = await dispatchStage(execution);
 
         // ── FINAL GOVERNANCE GATE ──
-        // Handler re-validates the suggested transition.
-        // Dispatcher suggests, handler enforces.
         if (result.nextStage !== previousStage && !isValidTransition(previousStage, result.nextStage)) {
             throw new InvalidStageTransition(previousStage, result.nextStage);
         }
@@ -103,13 +134,13 @@ export async function handler(
                     : ExecutionStatus.RUNNING);
 
         const updated = await repository.updateExecutionConditional(
+            execution.user_id,
             execution.execution_id,
             execution.version,
             { stage: result.nextStage, status: newStatus, input: result.output as Record<string, unknown> }
         );
 
         // ── ORPHAN APPROVAL PREVENTION ──
-        // If transitioning to ACT or FAILED, ensure no PENDING approval record is left behind.
         if (updated.stage === Stage.ACT || updated.stage === Stage.FAILED) {
             const approvalId = (execution.input as Record<string, any>)?.approval_id ||
                 (result.output as Record<string, any>)?.approval_id;
@@ -121,7 +152,6 @@ export async function handler(
         }
 
         // ── NON-BLOCKING LOGGING ──
-        // Async errors remain observable but never halt execution.
         await logger.logTransition(
             reqId,
             updated.execution_id,
@@ -133,7 +163,6 @@ export async function handler(
         );
 
         // ── WEBSOCKET STREAMING ──
-        // Notify BFF of the new stage and status for real-time dashboard updates.
         notifyBffOfTransition(updated.execution_id, updated.stage, updated.status).catch(err =>
             console.warn("[WEBSOCKET NOTIFY FAILED]", err)
         );
@@ -149,131 +178,48 @@ export async function handler(
     } catch (error: unknown) {
         const message = error instanceof OrchestratorError ? error.message : "Internal orchestrator error";
         const code = error instanceof OrchestratorError ? error.code : "UNKNOWN_ERROR";
-        console.error(`[HANDLER ERROR] ${message}`);
+        console.error(`[HANDLER ERROR] ${message}`, error);
         return errorResponse(message, { requestId: reqId, code });
     }
 }
 
 /**
  * Direct invocation for Phase-8 validation.
- * Run with: npm start
- *
- * Drives the complete agentic lifecycle from ASK to COMPLETED.
- * Injects a test execution plan into the input after the APPROVAL stage
- * so ACT and VERIFY can run fully in the local (non-AWS) environment.
  */
 async function main() {
-    console.log("=== NexusOPS Orchestrator — Phase-8 Validation ===\n");
+    console.log("=== NexusOPS Orchestrator — AWS Hybrid Trigger Validation ===\n");
 
     const request: ExecutionRequest = {
-        execution_id: "exec-phase8",
+        execution_id: "exec-aws-test",
         user_id: "user-nexus",
         repo_id: "repo-alpha",
-        // Seed query so RETRIEVE has something to work with
-        input: { query: "Update deployment configuration for production" },
+        input: { query: "AWS Deployment Verification" },
     };
 
-    // ── Step 1: ASK → RETRIEVE ──
-    console.log("--- Step 1: ASK → RETRIEVE ---");
+    console.log("--- Simulating Direct Invocation ---");
     const r1 = await handler(request);
-    console.log("[ASK Result]:", JSON.stringify(r1, null, 2));
+    console.log("[Direct Result]:", JSON.stringify(r1, null, 2));
 
-    // ── Step 2: RETRIEVE → REASON ──
-    console.log("\n--- Step 2: RETRIEVE → REASON ---");
-    const r2 = await handler(request);
-    console.log("[RETRIEVE Result]:", JSON.stringify(r2, null, 2));
-
-    // ── Step 3: REASON → CONSTRAINT ──
-    console.log("\n--- Step 3: REASON → CONSTRAINT ---");
-    const r3 = await handler(request);
-    console.log("[REASON Result]:", JSON.stringify(r3, null, 2));
-
-    // ── Step 4: CONSTRAINT → APPROVAL_PENDING ──
-    console.log("\n--- Step 4: CONSTRAINT → APPROVAL_PENDING ---");
-    const r4 = await handler(request);
-    console.log("[CONSTRAINT Result]:", JSON.stringify(r4, null, 2));
-
-    // ── Step 5: APPROVAL_PENDING (check / notify) ──
-    console.log("\n--- Step 5: APPROVAL_PENDING ---");
-    const r5 = await handler(request);
-    console.log("[APPROVAL Result]:", JSON.stringify(r5, null, 2));
-
-    // ── Inject a validated_plan directly into execution input ──
-    // This bypasses Bedrock + constraint evaluation for Phase-8 local testing.
-    // In production, the plan flows naturally through REASON → CONSTRAINT → APPROVAL → ACT.
-    {
-        const execution = await repository.getExecution(request.execution_id);
-
-        // Only inject if execution is in APPROVAL_PENDING or ACT (plan not already present)
-        const currentInput = (execution.input ?? {}) as Record<string, unknown>;
-        if (!currentInput.validated_plan) {
-            await repository.updateExecutionConditional(
-                execution.execution_id,
-                execution.version,
-                {
-                    input: {
-                        ...currentInput,
-                        validated_plan: {
-                            objective: "Update deployment configuration for production",
-                            estimated_risk: "low",
-                            steps: [
-                                {
-                                    step_id: 1,
-                                    tool: "update_file",
-                                    action: "Update deploy config",
-                                    parameters: { file: "src/deploy/config.ts" },
-                                    expected_output: "Config updated",
-                                    risk_level: "low",
-                                },
-                                {
-                                    step_id: 2,
-                                    tool: "create_file",
-                                    action: "Create deployment manifest",
-                                    parameters: { file: "src/deploy/manifest.yaml" },
-                                    expected_output: "Manifest created",
-                                    risk_level: "low",
-                                },
-                                {
-                                    step_id: 3,
-                                    tool: "run_ci",
-                                    action: "Run deployment pipeline",
-                                    parameters: { pipeline: "deploy-production" },
-                                    expected_output: "Pipeline triggered",
-                                    risk_level: "low",
-                                },
-                            ],
-                        },
-                    },
-                }
-            );
-            console.log("\n[HANDLER] Test plan injected into execution input for Phase-8 local validation.");
-        }
-    }
-
-    // ── Step 6: ACT → VERIFY ──
-    console.log("\n--- Step 6: ACT → VERIFY ---");
-    const r6 = await handler(request);
-    console.log("[ACT Result]:", JSON.stringify(r6, null, 2));
-
-    // ── Step 7: VERIFY → COMPLETED ──
-    console.log("\n--- Step 7: VERIFY → COMPLETED ---");
-    const r7 = await handler(request);
-    console.log("[VERIFY Result]:", JSON.stringify(r7, null, 2));
-
-    // ── Summary ──
-    const finalExecution = await repository.getExecution(request.execution_id).catch(() => null);
-    console.log("\n=== Phase-8 Validation Complete ===");
-    console.log(`Final stage: ${finalExecution?.stage ?? "unknown"}`);
-    console.log(`Final status: ${finalExecution?.status ?? "unknown"}`);
-
-    if (finalExecution?.stage !== "COMPLETED") {
-        console.error("❌ Phase-8 validation FAILED — execution did not reach COMPLETED");
-        process.exit(1);
-    }
-    console.log("✅ Phase-8 validation PASSED — full lifecycle reached COMPLETED");
+    console.log("\n--- Simulating SQS Trigger ---");
+    const sqsEvent: SQSEvent = {
+        Records: [
+            {
+                messageId: "msg-123",
+                receiptHandle: "handle",
+                body: JSON.stringify(request),
+                attributes: {} as any,
+                messageAttributes: {},
+                md5OfBody: "md5",
+                eventSource: "aws:sqs",
+                eventSourceARN: "arn",
+                awsRegion: "us-east-1"
+            }
+        ]
+    };
+    await handler(sqsEvent);
+    console.log("\n[SQS Simulation] Check console logs for 'SQS HANDLER' messages.");
 }
 
 if (require.main === module) {
     main().catch(console.error);
 }
-

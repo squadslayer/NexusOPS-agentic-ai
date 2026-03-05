@@ -28,19 +28,16 @@ if ENV not in ['local', 'aws']:
 
 if ENV == 'local':
     """Local Development Configuration"""
-    # DynamoDB endpoint for local testing
-    DYNAMODB_ENDPOINT = "http://localhost:8000"
+    # Use AWS default DynamoDB endpoint for local development testing against live AWS
+    DYNAMODB_ENDPOINT = ""
     
     # Logging mode for development
     LOG_LEVEL = logging.DEBUG
     
-    # Bypass authentication for easier local testing
-    AUTH_BYPASS = True
+    # Require real authentication since GitHub login is integrated
+    AUTH_BYPASS = False
     
-    # Inject dummy AWS credentials to completely bypass Boto3 metadata 60s timeout hangs
-    os.environ['AWS_ACCESS_KEY_ID'] = 'test-local-key'
-    os.environ['AWS_SECRET_ACCESS_KEY'] = 'test-local-secret'
-    os.environ['AWS_DEFAULT_REGION'] = 'us-east-1'
+    # Removed dummy credential injection so that real keys from .env are used
     
     # Additional local settings
     DEBUG = True
@@ -94,6 +91,7 @@ ENCRYPTION_ALGORITHM = 'AES'
 # Orchestrator service settings
 ORCHESTRATOR_SERVICE_URL = os.getenv('ORCHESTRATOR_SERVICE_URL', 'http://localhost:5001')
 ORCHESTRATOR_LAMBDA_NAME = os.getenv('ORCHESTRATOR_LAMBDA_NAME', 'NexusOps-Orchestrator-Phase1')
+ORCHESTRATOR_QUEUE_URL = os.getenv('ORCHESTRATOR_QUEUE_URL', '')
 
 # Logging configuration
 LOGGING_FORMAT = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'

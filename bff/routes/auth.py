@@ -156,10 +156,10 @@ async def github_callback(code: str = None, error: str = None):
     Handles the GitHub OAuth callback, exchanges code for token,
     fetches user profile, issues a JWT, and redirects to the dashboard.
     """
-    dashboard_url = "http://localhost:3001/dashboard"
+    dashboard_url = "http://localhost:3000/dashboard"
 
     if error or not code:
-        return RedirectResponse(url=f"http://localhost:3001/login?error=github_denied")
+        return RedirectResponse(url=f"http://localhost:3000/login?error=github_denied")
 
     try:
         # Exchange code for GitHub access token
@@ -169,7 +169,7 @@ async def github_callback(code: str = None, error: str = None):
             raise ValueError("No access_token in OAuth response")
     except Exception as e:
         logger.error(f"GitHub OAuth exchange failed: {e}")
-        return RedirectResponse(url=f"http://localhost:3001/login?error=oauth_failed")
+        return RedirectResponse(url=f"http://localhost:3000/login?error=oauth_failed")
 
     try:
         # Fetch GitHub user profile
@@ -209,4 +209,4 @@ async def github_callback(code: str = None, error: str = None):
 
     except Exception as e:
         logger.error(f"GitHub profile fetch failed: {e}")
-        return RedirectResponse(url=f"http://localhost:3001/login?error=profile_failed")
+        return RedirectResponse(url=f"http://localhost:3000/login?error=profile_failed")

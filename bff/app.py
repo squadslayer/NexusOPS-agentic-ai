@@ -71,6 +71,14 @@ def create_app():
 # Create the application instance
 app = create_app()
 
+# AWS Lambda Handler (Mangum adapter for API Gateway)
+try:
+    from mangum import Mangum
+    handler = Mangum(app)
+except ImportError:
+    logger.warning("Mangum not installed, Lambda handler not available")
+    handler = None
+
 if __name__ == '__main__':
     import uvicorn
     # Only watch the bff/ directory for changes (not dashboard/landing-page)

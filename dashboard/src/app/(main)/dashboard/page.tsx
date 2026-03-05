@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { apiFetch } from "@/lib/api";
+import { useRepositories, type Repository as Repo } from "@/hooks/useRepositories";
 import {
     ServerStackIcon,
     ArrowDownTrayIcon,
@@ -19,13 +20,7 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-type Repo = {
-    id: string;
-    name: string;
-    full_name: string;
-    html_url: string;
-    private: boolean;
-};
+
 
 type ChatMessage = {
     id: string;
@@ -108,8 +103,8 @@ function ChatPanel({ isOpen, onClose, repos }: { isOpen: boolean; onClose: () =>
                     >
                         <div
                             className={`max-w-[85%] px-3 py-2 rounded-lg text-sm whitespace-pre-wrap ${msg.role === "user"
-                                    ? "bg-primary text-white rounded-br-none"
-                                    : "bg-background text-textMain border border-border rounded-bl-none"
+                                ? "bg-primary text-white rounded-br-none"
+                                : "bg-background text-textMain border border-border rounded-bl-none"
                                 }`}
                         >
                             {msg.content}
@@ -162,52 +157,8 @@ function ChatPanel({ isOpen, onClose, repos }: { isOpen: boolean; onClose: () =>
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-    const [repos, setRepos] = useState<Repo[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [ingestionPhase, setIngestionPhase] = useState<"idle" | "ingesting" | "done">("idle");
+    const { repositories: repos, isLoading } = useRepositories();
     const [isChatOpen, setIsChatOpen] = useState(false);
-
-    useEffect(() => {
-        async function fetchRepos() {
-            try {
-                const res = await apiFetch("/repos/");
-                if (res.ok) {
-                    const json = await res.json();
-                    const fetched = json.data?.repositories || [];
-                    setRepos(fetched);
-
-                    // Check if we have connected repos in localStorage
-                    const connectedIds = JSON.parse(
-                        localStorage.getItem("nexusops_connected_repos") || "[]"
-                    );
-                    const connectedRepos = fetched.filter((r: Repo) =>
-                        connectedIds.includes(String(r.id))
-                    );
-
-                    if (connectedRepos.length > 0) {
-                        // Simulate ingestion if first time
-                        const ingestionDone = localStorage.getItem("nexusops_ingestion_done");
-                        if (ingestionDone) {
-                            setIngestionPhase("done");
-                        } else {
-                            setIngestionPhase("ingesting");
-                            // Simulate ingestion taking 4 seconds
-                            setTimeout(() => {
-                                setIngestionPhase("done");
-                                localStorage.setItem("nexusops_ingestion_done", "true");
-                            }, 4000);
-                        }
-                        setRepos(connectedRepos);
-                    }
-                }
-            } catch {
-                // silently fail — empty state will show
-            } finally {
-                setIsLoading(false);
-            }
-        }
-        fetchRepos();
-    }, []);
 
     const handleExport = () => {
         if (repos.length === 0) {
@@ -222,7 +173,7 @@ export default function DashboardPage() {
             "Connected Repositories:",
             ...repos.map(
                 (r, i) =>
-                    `  ${i + 1}. ${r.full_name} (${r.private ? "Private" : "Public"}) — ${r.html_url}`
+                    `  ${i + 1}. ${r.name} (${r.private ? "Private" : "Public"}) — ${r.html_url}`
             ),
         ];
         const blob = new Blob([lines.join("\n")], { type: "text/plain" });
@@ -249,7 +200,7 @@ export default function DashboardPage() {
     }
 
     // ─── No repos connected — empty state ───
-    if (repos.length === 0 || ingestionPhase === "idle") {
+    if (repos.length === 0) {
         return (
             <PageContainer
                 heading="Dashboard"
@@ -284,7 +235,8 @@ export default function DashboardPage() {
     }
 
     // ─── Ingesting state ───
-    if (ingestionPhase === "ingesting") {
+    const ingestingRepos = repos.filter(r => r.status === "INGESTING");
+    if (ingestingRepos.length > 0) {
         return (
             <PageContainer
                 heading="Dashboard"
@@ -308,49 +260,18 @@ export default function DashboardPage() {
                         </p>
                     </div>
 
-                    {/* Progress steps */}
-                    <div className="w-full max-w-md space-y-3">
-                        {[
-                            { label: "Connecting to GitHub API", done: true },
-                            { label: "Scanning repository structure", done: true },
-                            { label: "Analyzing IaC configurations", done: false, active: true },
-                            { label: "Building governance context", done: false },
-                            { label: "Ready for queries", done: false },
-                        ].map((step, i) => (
-                            <div key={i} className="flex items-center gap-3">
-                                {step.done ? (
-                                    <CheckCircleIcon className="h-5 w-5 text-successText shrink-0" />
-                                ) : step.active ? (
-                                    <ArrowPathIcon className="h-5 w-5 text-primary animate-spin shrink-0" />
-                                ) : (
-                                    <div className="h-5 w-5 rounded-full border-2 border-border shrink-0" />
-                                )}
-                                <span
-                                    className={`text-sm ${step.done
-                                            ? "text-textMain"
-                                            : step.active
-                                                ? "text-primary font-medium"
-                                                : "text-textMuted"
-                                        }`}
-                                >
-                                    {step.label}
-                                </span>
-                            </div>
-                        ))}
-                    </div>
-
                     {/* Repo being ingested */}
                     <div className="w-full max-w-md mt-4">
                         <p className="text-xs text-textMuted mb-2 uppercase tracking-wide font-medium">
                             Repositories being ingested
                         </p>
                         <div className="space-y-2">
-                            {repos.map((repo) => (
+                            {ingestingRepos.map((repo) => (
                                 <div key={repo.id} className="card p-3 flex items-center gap-3">
                                     <ArrowPathIcon className="h-4 w-4 text-primary animate-spin shrink-0" />
                                     <div>
                                         <p className="text-sm font-medium text-textMain">{repo.name}</p>
-                                        <p className="text-xs text-textMuted">{repo.full_name}</p>
+                                        <p className="text-xs text-textMuted">{repo.html_url}</p>
                                     </div>
                                 </div>
                             ))}
@@ -380,7 +301,6 @@ export default function DashboardPage() {
                     </div>
                 }
             >
-                {/* Connected Repos */}
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <h2 className="text-sm font-semibold text-textMain">Connected Repositories</h2>
@@ -397,23 +317,19 @@ export default function DashboardPage() {
                             <div key={repo.id} className="card flex flex-col gap-3 p-4">
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-center gap-2 min-w-0">
-                                        {repo.private ? (
-                                            <LockClosedIcon className="h-5 w-5 text-primary shrink-0" />
-                                        ) : (
-                                            <GlobeAltIcon className="h-5 w-5 text-primary shrink-0" />
-                                        )}
+                                        <GlobeAltIcon className="h-5 w-5 text-primary shrink-0" />
                                         <div className="min-w-0">
                                             <p className="text-sm font-semibold text-textMain truncate">
                                                 {repo.name}
                                             </p>
                                             <p className="text-xs text-textMuted truncate">
-                                                {repo.full_name}
+                                                {repo.html_url}
                                             </p>
                                         </div>
                                     </div>
                                     <span className="flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full font-medium bg-success/10 text-successText shrink-0">
                                         <CheckCircleIcon className="h-3 w-3" />
-                                        Ingested
+                                        {repo.status || "Ready"}
                                     </span>
                                 </div>
                                 <a

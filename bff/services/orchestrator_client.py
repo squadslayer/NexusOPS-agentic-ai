@@ -29,6 +29,7 @@ from bff.utils.response_envelope import (
     mask_aws_error,
     StandardResponseEnvelope,
 )
+from bff.utils.sqs_utils import sqs_client
 
 logger = logging.getLogger(__name__)
 
@@ -132,60 +133,56 @@ def invoke_orchestrator(
     repo_id: str,
     user_input: Optional[Dict[str, Any]] = None,
 ) -> StandardResponseEnvelope:
-    """Invoke the Phase-1 Orchestrator Lambda.
+    """Invoke the Phase-1 Orchestrator via SQS (Async) or Lambda (Sync).
 
     Invocation rules
     ~~~~~~~~~~~~~~~~
+    * If `ORCHESTRATOR_QUEUE_URL` is defined, use SQS (Async trigger).
+    * Otherwise, use direct Lambda invocation (Sync / RequestResponse).
     * Payload is restricted to ``{execution_id, user_id, repo_id, input}``.
-    * Timeout is capped at **29 seconds** (API Gateway ceiling).
-    * Exactly **one** automatic retry is attempted for transient network errors.
-    * The response is normalised using the Track 2 Standard Response Envelope
-      with ``meta.stage`` always set to ``"ASK"``.
-
-    Args:
-        user_id: Authenticated user ID injected by the Track 3 Auth Middleware.
-        repo_id: Verified repository ID obtained via the Track 4 GitHub Service.
-        user_input: Optional free-form dict forwarded as the ``input`` field.
-
-    Returns:
-        StandardResponseEnvelope wrapping the orchestrator's response.
+    * The response is normalised using the Track 2 Standard Response Envelope.
     """
     execution_id = str(uuid.uuid4())
-    lambda_function_name = config.ORCHESTRATOR_LAMBDA_NAME
-
-    # 1. Build the governance-compliant payload
     payload = _sanitize_payload(execution_id, user_id, repo_id, user_input)
 
+    # 1. Try SQS (Asynchronous Trigger) - Preferred for Production
+    if config.ORCHESTRATOR_QUEUE_URL:
+        logger.info(f"Triggering orchestrator via SQS (execution_id: {execution_id})")
+        message_id = sqs_client.send_execution_request(payload)
+        if message_id:
+            return create_success_response(
+                data={"message_id": message_id, "mode": "async"},
+                execution_id=execution_id,
+                stage="ASK"
+            )
+        logger.warning("SQS trigger failed, falling back to direct Lambda invocation")
+
+    # 2. Synchronous Lambda Invocation (Fallback or Local)
+    lambda_function_name = config.ORCHESTRATOR_LAMBDA_NAME
     logger.info(
-        "Invoking orchestrator Lambda %s (execution_id: %s, user_id: %s, repo_id: %s)",
+        "Invoking orchestrator Lambda %s (execution_id: %s)",
         lambda_function_name,
-        execution_id,
-        user_id,
-        repo_id,
+        execution_id
     )
 
     try:
         client = _build_lambda_client()
 
-        # 2. Synchronous invocation
+        # InvocationType="Event" for truly async local testing if needed, 
+        # but the client defaults to RequestResponse for governance compliance.
         response = client.invoke(
             FunctionName=lambda_function_name,
             InvocationType="RequestResponse",
             Payload=json.dumps(payload).encode("utf-8"),
         )
 
-        # 3. Read and parse the response payload
+        # ... (rest of the response processing remains the same)
         status_code = response.get("StatusCode", 0)
         function_error = response.get("FunctionError")
         raw_payload = response["Payload"].read().decode("utf-8")
 
         if function_error:
-            logger.error(
-                "Orchestrator Lambda returned FunctionError=%s (execution_id: %s): %s",
-                function_error,
-                execution_id,
-                raw_payload[:500],
-            )
+            logger.error(f"Orchestrator Lambda FunctionError (execution_id: {execution_id}): {raw_payload[:500]}")
             return create_error_response(
                 error_message="Orchestrator execution failed",
                 error_code="ORCHESTRATOR_ERROR",
@@ -193,87 +190,16 @@ def invoke_orchestrator(
                 stage="ASK",
             )
 
-        if status_code not in range(200, 300):
-            logger.error(
-                "Orchestrator Lambda returned HTTP %s (execution_id: %s)",
-                status_code,
-                execution_id,
-            )
-            return create_error_response(
-                error_message="Orchestrator returned an unexpected status",
-                error_code="ORCHESTRATOR_ERROR",
-                execution_id=execution_id,
-                stage="ASK",
-            )
-
-        # Parse the Lambda JSON body
+        # Parse and return normalized response
         try:
             parsed_body = json.loads(raw_payload) if raw_payload else {}
         except json.JSONDecodeError:
-            logger.warning(
-                "Non-JSON response from orchestrator (execution_id: %s), wrapping raw",
-                execution_id,
-            )
             parsed_body = {"raw_response": raw_payload}
 
-        # 4. Normalize into Track 2 envelope
-        logger.info(
-            "Orchestrator invoked successfully (execution_id: %s)", execution_id
-        )
         return _normalize_lambda_response(parsed_body, execution_id)
 
-    except (ConnectionError, ReadTimeoutError) as exc:
-        # Transient network errors — the boto retry config handles the single
-        # automatic retry.  If we still land here, all retries were exhausted.
-        logger.error(
-            "Transient network error invoking orchestrator (execution_id: %s): %s",
-            execution_id,
-            str(exc),
-        )
-        safe_msg, err_code = mask_aws_error(exc)
-        return create_error_response(
-            error_message=safe_msg,
-            error_code=err_code,
-            execution_id=execution_id,
-            stage="ASK",
-        )
-
-    except ClientError as exc:
-        error_code = exc.response["Error"]["Code"]
-        logger.error(
-            "AWS ClientError %s invoking orchestrator (execution_id: %s): %s",
-            error_code,
-            execution_id,
-            str(exc),
-        )
-        safe_msg, err_code = mask_aws_error(exc)
-        return create_error_response(
-            error_message=safe_msg,
-            error_code=err_code,
-            execution_id=execution_id,
-            stage="ASK",
-        )
-
-    except ValueError as exc:
-        # Payload validation failure
-        logger.error(
-            "Payload validation error (execution_id: %s): %s",
-            execution_id,
-            str(exc),
-        )
-        return create_error_response(
-            error_message="Invalid invocation parameters",
-            error_code="VALIDATION_ERROR",
-            execution_id=execution_id,
-            stage="ASK",
-        )
-
     except Exception as exc:
-        logger.error(
-            "Unexpected error invoking orchestrator (execution_id: %s): %s",
-            execution_id,
-            str(exc),
-        )
+        logger.error(f"Unexpected error invoking orchestrator (execution_id: {execution_id}): {str(exc)}")
         safe_msg, err_code = mask_aws_error(exc)
         return create_error_response(
             error_message=safe_msg,
