@@ -148,16 +148,6 @@ class GitHubOAuthService:
     def validate_repository_access(self, access_token: str, repo_url: str) -> Tuple[bool, Dict[str, Any]]:
         """
         Verify that the user has access to the specified GitHub repository.
-        
-        Args:
-            access_token (str): GitHub access token
-            repo_url (str): Repository URL (e.g., "https://github.com/owner/repo")
-            
-        Returns:
-            Tuple: (is_accessible, repo_info)
-            
-        Raises:
-            Exception: If validation fails
         """
         try:
             # Parse repo URL
@@ -437,6 +427,19 @@ class GitHubIntegrationService:
         Complete flow to connect a GitHub repository.
         Uses existing token if code is not provided.
         """
+        if config.AUTH_BYPASS:
+            logger.info(f"[DEBUG] AUTH_BYPASS active, providing mock connection for user {user_id}")
+            mock_repo_name = repo_url.split('/')[-1]
+            return {
+                "user_id": user_id,
+                "repo_url": repo_url,
+                "connected": True,
+                "repo_id": "mock-repo-12345",
+                "repo_name": mock_repo_name,
+                "repo_owner": "mock-owner",
+                "scopes": ["repo", "workflow"]
+            }
+
         try:
             access_token = None
             if code:
@@ -494,6 +497,35 @@ class GitHubIntegrationService:
         Fetch all repositories accessible to the authenticated user using the stored token.
         """
         try:
+            if config.AUTH_BYPASS:
+                logger.info(f"[DEBUG] AUTH_BYPASS active, providing mock repositories for user {user_id}")
+                return [
+                    {
+                        "id": 12345,
+                        "name": "nexusops-core",
+                        "full_name": "squadslayer/nexusops-core",
+                        "html_url": "https://github.com/squadslayer/nexusops-core",
+                        "private": True,
+                        "permissions": {"pull": True, "push": True, "admin": False}
+                    },
+                    {
+                        "id": 67890,
+                        "name": "terraform-aws-modules",
+                        "full_name": "squadslayer/terraform-aws-modules",
+                        "html_url": "https://github.com/squadslayer/terraform-aws-modules",
+                        "private": False,
+                        "permissions": {"pull": True, "push": False, "admin": False}
+                    },
+                    {
+                        "id": 54321,
+                        "name": "cloud-governance-policies",
+                        "full_name": "squadslayer/cloud-governance-policies",
+                        "html_url": "https://github.com/squadslayer/cloud-governance-policies",
+                        "private": True,
+                        "permissions": {"pull": True, "push": True, "admin": True}
+                    }
+                ]
+
             logger.info(f"[DEBUG] Fetching available repos for user_id: {user_id}")
             # Try to get any stored token for this user from DynamoDB via Repo
             token_obj = self.token_repo.get_any_token_for_user(user_id)

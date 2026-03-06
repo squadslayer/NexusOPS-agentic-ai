@@ -25,6 +25,25 @@ export async function retrieveStage(execution: Readonly<Execution>): Promise<Sta
 
     const query = buildQuery(execution);
 
+    // 1. Trigger Ingestion (Phase-Ingest)
+    try {
+        const { ingestRepository } = await import("../services/ingestionService");
+
+        // Smarter repoUrl resolution
+        let repoUrl = (execution.input as any)?.repository_url;
+        if (!repoUrl) {
+            if (execution.repo_id.startsWith("http")) {
+                repoUrl = execution.repo_id;
+            } else {
+                repoUrl = `https://github.com/${execution.repo_id}`;
+            }
+        }
+
+        await ingestRepository(repoUrl, execution.repo_id);
+    } catch (ingestError) {
+        console.warn(`[RETRIEVE STAGE] Ingestion failed, proceeding with fallback.`, ingestError);
+    }
+
     const retrieval = await retrieveContext(query, execution.repo_id);
 
     if (retrieval.chunk_refs.length === 0) {

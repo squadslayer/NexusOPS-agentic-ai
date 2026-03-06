@@ -2,6 +2,7 @@ import { Navigation } from "@/components/layout/Navigation";
 import { Header } from "@/components/layout/Header";
 import { ExecutionOverlay } from "@/components/execution/ExecutionOverlay";
 import { AuthGuard } from "@/components/auth/AuthGuard";
+import { Toaster } from 'react-hot-toast';
 
 export default function DashboardLayout({
     children,
@@ -10,6 +11,7 @@ export default function DashboardLayout({
 }) {
     return (
         <AuthGuard>
+            <Toaster position="bottom-right" toastOptions={{ className: 'font-mono text-sm' }} />
             <div className="flex h-screen w-full overflow-hidden bg-background">
                 {/* Fixed-width left sidebar */}
                 <Navigation />

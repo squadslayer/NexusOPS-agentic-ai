@@ -17,7 +17,8 @@ from .auth_fastapi import (
     require_auth_fastapi
 )
 from .rate_limit import (
-    rate_limit
+    rate_limit,
+    check_rate_limit
 )
 from .validation import (
     validate_execution_request
@@ -30,5 +31,6 @@ __all__ = [
     'format_response_for_api',
     'require_auth',
     'rate_limit',
+    'check_rate_limit',
     'validate_execution_request',
 ]

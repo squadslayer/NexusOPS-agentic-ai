@@ -18,6 +18,9 @@ from functools import wraps
 import boto3
 from botocore.exceptions import ClientError
 from flask import g
+from fastapi import HTTPException
+from collections import defaultdict
+from datetime import datetime, timedelta
 
 from bff import config
 from bff.utils.response_envelope import create_error_response
@@ -181,3 +184,38 @@ def rate_limit(f):
         return f(*args, **kwargs)
 
     return decorated_function
+
+# ---------------------------------------------------------------------------
+# FastAPI Rate Limiter
+# ---------------------------------------------------------------------------
+
+# In-memory rate limiter (simple, no external dependencies)
+rate_limit_store = defaultdict(list)
+
+def check_rate_limit(user_id: str, limit: int = 10, window: int = 60):
+    """Check if user exceeded rate limit
+    
+    Args:
+        user_id: User identifier
+        limit: Max requests per window
+        window: Time window in seconds
+    """
+    now = datetime.utcnow()
+    window_start = now - timedelta(seconds=window)
+    
+    # Get user's recent requests
+    requests = rate_limit_store[user_id]
+    
+    # Remove old requests outside window
+    requests = [req_time for req_time in requests if req_time > window_start]
+    rate_limit_store[user_id] = requests
+    
+    # Check limit
+    if len(requests) >= limit:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded. Max {limit} executions per minute. Try again in {60 - (now - requests[0]).seconds} seconds."
+        )
+    
+    # Add current request
+    requests.append(now)

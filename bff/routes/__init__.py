@@ -8,5 +8,6 @@ from .execution import router as execution_router
 from .auth import router as auth_router
 from .repo import router as repo_router
 from .ws import router as ws_router
+from .dashboard import router as dashboard_router
 
-__all__ = ['execution_router', 'auth_router', 'repo_router', 'ws_router']
+__all__ = ['execution_router', 'auth_router', 'repo_router', 'ws_router', 'dashboard_router']

@@ -19,3 +19,4 @@ class ExecutionRecord(BaseModel):
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
     duration: Optional[float] = None
+    version: int = 1

@@ -6,7 +6,7 @@ enabling development and testing of the NexusOPS dashboard and orchestrator.
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from bff.routes import execution_router, auth_router, repo_router, ws_router
+from bff.routes import execution_router, auth_router, repo_router, ws_router, dashboard_router
 from bff import config
 from bff.middleware import generate_execution_id
 import logging
@@ -25,9 +25,26 @@ def create_app():
     )
     
     # Configure CORS for Dashboard and Landing Page
+    # Environment-specific origin restrictions
+    if config.CURRENT_ENV == 'aws':
+        # Production: restrict to specific domains
+        allowed_origins = [
+            "https://dashboard.nexusops.ai",
+            "https://nexusops.ai",
+            "https://www.nexusops.ai"
+        ]
+    else:
+        # Local development: allow localhost
+        allowed_origins = [
+            "http://localhost:3000",
+            "http://localhost:8000",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:8000"
+        ]
+    
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["*"], # In production, restrict to specific domains
+        allow_origins=allowed_origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
@@ -48,6 +65,7 @@ def create_app():
     app.include_router(auth_router)
     app.include_router(repo_router)
     app.include_router(ws_router)
+    app.include_router(dashboard_router)
     
     @app.get("/health")
     async def health_check():

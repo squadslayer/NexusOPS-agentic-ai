@@ -1,42 +1,24 @@
 import type { Metadata } from "next";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { ResourcesTable } from "@/components/charts/ResourcesTable";
-import type { ResourceItem } from "@/components/charts/ResourcesTable";
+import { WrenchScrewdriverIcon } from "@heroicons/react/24/outline";
 
-export const metadata: Metadata = { title: "Resource Inventory" };
+export const metadata: Metadata = { title: "Resources" };
 
-// Inline data mirrors /api/resources — avoids self-fetch port issues in dev.
-const RESOURCES: ResourceItem[] = [
-    { id: "r-001", name: "prod-data-lake-raw", type: "S3 Bucket", region: "us-east-1", account: "prod-account", status: "non-compliant" },
-    { id: "r-002", name: "i-0a1b2c3d4e5f67890", type: "EC2 Instance", region: "eu-west-1", account: "staging-account", status: "non-compliant" },
-    { id: "r-003", name: "db-prod-mysql-01", type: "RDS Instance", region: "us-east-1", account: "prod-account", status: "non-compliant" },
-    { id: "r-004", name: "prod-api-gateway", type: "API Gateway", region: "us-east-1", account: "prod-account", status: "compliant" },
-    { id: "r-005", name: "iam-admin-role", type: "IAM Role", region: "global", account: "prod-account", status: "compliant" },
-    { id: "r-006", name: "cloudtrail-org-trail", type: "CloudTrail", region: "us-east-1", account: "prod-account", status: "compliant" },
-    { id: "r-007", name: "lambda-remediate", type: "Lambda Function", region: "us-east-1", account: "prod-account", status: "compliant" },
-    { id: "r-008", name: "vpc-prod-main", type: "VPC", region: "us-east-1", account: "prod-account", status: "compliant" },
-    { id: "r-009", name: "sg-0fedcba987654321", type: "Security Group", region: "us-west-2", account: "staging-account", status: "non-compliant" },
-    { id: "r-010", name: "eks-cluster-prod", type: "EKS Cluster", region: "us-east-1", account: "prod-account", status: "compliant" },
-];
-
-/**
- * /resources — Resource Inventory page.
- * Server component: passes inline resource data to client ResourcesTable for filtering.
- */
-export default async function ResourcesPage() {
-    const resources = RESOURCES;
-
+export default function ResourcesPage() {
     return (
         <PageContainer
-            heading="Resource Inventory"
-            description="All tracked AWS resources across accounts and regions, with live compliance status."
-            actions={
-                <button type="button" className="btn-primary text-xs">
-                    Export CSV
-                </button>
-            }
+            heading="AWS Resources"
+            description="Global view of all tracked AWS resources across linked accounts."
         >
-            <ResourcesTable resources={resources} />
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center mb-6">
+                    <WrenchScrewdriverIcon className="h-8 w-8 text-primary" />
+                </div>
+                <h2 className="text-xl font-semibold text-textMain mb-2">Coming Soon</h2>
+                <p className="text-sm text-textSub max-w-md">
+                    The Global Resource Inventory is currently being integrated with the ingestion graph.
+                </p>
+            </div>
         </PageContainer>
     );
 }

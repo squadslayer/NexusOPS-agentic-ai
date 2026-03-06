@@ -33,13 +33,12 @@ def delete_table_if_exists(table_name):
 def create_github_tokens():
     table_name = 'GitHubTokens'
     delete_table_if_exists(table_name)
-    
     logger.info(f"Creating '{table_name}' table...")
     dynamodb.create_table(
         TableName=table_name,
         KeySchema=[
-            {'AttributeName': 'user_id', 'KeyType': 'HASH'},  # Partition key
-            {'AttributeName': 'repo_id', 'KeyType': 'RANGE'}   # Sort key
+            {'AttributeName': 'user_id', 'KeyType': 'HASH'},
+            {'AttributeName': 'repo_id', 'KeyType': 'RANGE'}
         ],
         AttributeDefinitions=[
             {'AttributeName': 'user_id', 'AttributeType': 'S'},
@@ -47,32 +46,24 @@ def create_github_tokens():
         ],
         ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
     )
-    
-    # Wait for the table to be active before enabling TTL
     logger.info(f"Waiting for '{table_name}' to become ACTIVE...")
     waiter = dynamodb.get_waiter('table_exists')
     waiter.wait(TableName=table_name)
-    
-    # Enable TTL on the new table
     dynamodb.update_time_to_live(
         TableName=table_name,
-        TimeToLiveSpecification={
-            'Enabled': True,
-            'AttributeName': 'ttl'
-        }
+        TimeToLiveSpecification={'Enabled': True, 'AttributeName': 'ttl'}
     )
     logger.info(f"Successfully created '{table_name}' with TTL enabled.")
 
 def create_repositories():
     table_name = 'Repositories'
     delete_table_if_exists(table_name)
-    
     logger.info(f"Creating '{table_name}' table...")
     dynamodb.create_table(
         TableName=table_name,
         KeySchema=[
-            {'AttributeName': 'user_id', 'KeyType': 'HASH'},  # Partition key
-            {'AttributeName': 'repo_id', 'KeyType': 'RANGE'}   # Sort key
+            {'AttributeName': 'user_id', 'KeyType': 'HASH'},
+            {'AttributeName': 'repo_id', 'KeyType': 'RANGE'}
         ],
         AttributeDefinitions=[
             {'AttributeName': 'user_id', 'AttributeType': 'S'},
@@ -85,7 +76,6 @@ def create_repositories():
 def create_execution_records():
     table_name = 'ExecutionRecords'
     delete_table_if_exists(table_name)
-    
     logger.info(f"Creating '{table_name}' table with GSI...")
     dynamodb.create_table(
         TableName=table_name,
@@ -97,24 +87,98 @@ def create_execution_records():
             {'AttributeName': 'user_id', 'AttributeType': 'S'},
             {'AttributeName': 'execution_id', 'AttributeType': 'S'}
         ],
-        GlobalSecondaryIndexes=[
-            {
-                'IndexName': 'GSI1',
-                'KeySchema': [{'AttributeName': 'execution_id', 'KeyType': 'HASH'}],
-                'Projection': {'ProjectionType': 'ALL'},
-                'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
-            }
+        GlobalSecondaryIndexes=[{
+            'IndexName': 'GSI1',
+            'KeySchema': [{'AttributeName': 'execution_id', 'KeyType': 'HASH'}],
+            'Projection': {'ProjectionType': 'ALL'},
+            'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+        }],
+        ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+    )
+    logger.info(f"Successfully created '{table_name}'.")
+
+def create_execution_logs():
+    table_name = 'ExecutionLogs'
+    delete_table_if_exists(table_name)
+    logger.info(f"Creating '{table_name}' table...")
+    dynamodb.create_table(
+        TableName=table_name,
+        KeySchema=[
+            {'AttributeName': 'execution_id', 'KeyType': 'HASH'},
+            {'AttributeName': 'log_timestamp', 'KeyType': 'RANGE'}
+        ],
+        AttributeDefinitions=[
+            {'AttributeName': 'execution_id', 'AttributeType': 'S'},
+            {'AttributeName': 'log_timestamp', 'AttributeType': 'S'}
         ],
         ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
     )
-    logger.info(f"Successfully created '{table_name}' with GSI1.")
+    logger.info(f"Successfully created '{table_name}'.")
+
+def create_context_chunks():
+    table_name = 'ContextChunks'
+    delete_table_if_exists(table_name)
+    logger.info(f"Creating '{table_name}' table with GSI...")
+    dynamodb.create_table(
+        TableName=table_name,
+        KeySchema=[{'AttributeName': 'chunk_id', 'KeyType': 'HASH'}],
+        AttributeDefinitions=[
+            {'AttributeName': 'chunk_id', 'AttributeType': 'S'},
+            {'AttributeName': 'repo_id', 'AttributeType': 'S'}
+        ],
+        GlobalSecondaryIndexes=[{
+            'IndexName': 'RepoIndex',
+            'KeySchema': [
+                {'AttributeName': 'repo_id', 'KeyType': 'HASH'},
+                {'AttributeName': 'chunk_id', 'KeyType': 'RANGE'}
+            ],
+            'Projection': {'ProjectionType': 'ALL'},
+            'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+        }],
+        ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+    )
+    logger.info(f"Successfully created '{table_name}'.")
+
+def create_approval_records():
+    table_name = 'ApprovalRecords'
+    delete_table_if_exists(table_name)
+    logger.info(f"Creating '{table_name}' table with GSI...")
+    dynamodb.create_table(
+        TableName=table_name,
+        KeySchema=[{'AttributeName': 'approval_id', 'KeyType': 'HASH'}],
+        AttributeDefinitions=[
+            {'AttributeName': 'approval_id', 'AttributeType': 'S'},
+            {'AttributeName': 'execution_id', 'AttributeType': 'S'}
+        ],
+        GlobalSecondaryIndexes=[{
+            'IndexName': 'ExecutionIndex',
+            'KeySchema': [{'AttributeName': 'execution_id', 'KeyType': 'HASH'}],
+            'Projection': {'ProjectionType': 'ALL'},
+            'ProvisionedThroughput': {'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+        }],
+        ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+    )
+    logger.info(f"Successfully created '{table_name}'.")
+
+def create_simple_table(table_name, key_name):
+    delete_table_if_exists(table_name)
+    logger.info(f"Creating '{table_name}' table...")
+    dynamodb.create_table(
+        TableName=table_name,
+        KeySchema=[{'AttributeName': key_name, 'KeyType': 'HASH'}],
+        AttributeDefinitions=[{'AttributeName': key_name, 'AttributeType': 'S'}],
+        ProvisionedThroughput={'ReadCapacityUnits': 5, 'WriteCapacityUnits': 5}
+    )
+    logger.info(f"Successfully created '{table_name}'.")
 
 if __name__ == "__main__":
     logger.info("Starting DynamoDB Table Provisioning...")
-    # 1. Create GitHubTokens with PK/SK
     create_github_tokens()
-    # 2. Create Repositories with PK/SK
     create_repositories()
-    # 3. Force recreate ExecutionRecords with GSI
     create_execution_records()
+    create_execution_logs()
+    create_context_chunks()
+    create_approval_records()
+    create_simple_table('ToolRegistry', 'tool_id')
+    create_simple_table('RiskRegistry', 'risk_id')
     logger.info("Provisioning complete!")

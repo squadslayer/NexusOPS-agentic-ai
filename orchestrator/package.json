@@ -6,6 +6,7 @@
   "scripts": {
     "build": "tsc",
     "start": "ts-node src/handler.ts",
+    "local": "ts-node src/local_server.ts",
     "watch": "tsc -w"
   },
   "dependencies": {
@@ -16,10 +17,12 @@
     "@aws-sdk/client-sns": "^3.1000.0",
     "@aws-sdk/lib-dynamodb": "^3.1000.0",
     "ajv": "^8.18.0",
-    "dotenv": "^17.3.1"
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1"
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.161",
+    "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
     "@types/node": "^20.0.0",
     "jest": "^30.2.0",

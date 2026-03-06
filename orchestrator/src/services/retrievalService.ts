@@ -37,7 +37,7 @@ import {
 } from "@aws-sdk/client-s3";
 
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, PutCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, PutCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
 
 import { Readable } from "stream";
 import * as fs from "fs";
@@ -58,17 +58,14 @@ const bedrock = new BedrockAgentRuntimeClient({ region });
 const s3 = new S3Client({ region });
 const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region }));
 
-type RetrievalMode = "bedrock" | "s3" | "local" | "mock";
+type RetrievalMode = "bedrock" | "s3" | "dynamo" | "local" | "mock";
 
 function resolveMode(repoId: string): RetrievalMode {
     if (knowledgeBaseId && knowledgeBaseId !== "kb-xxxxx") return "bedrock";
     if (s3Bucket) return "s3";
 
-    // Check if local context exists in the context/ directory
-    const localContextPath = path.join(__dirname, "../../context", `${repoId}.json`);
-    if (fs.existsSync(localContextPath)) return "local";
-
-    return "mock";
+    // Default to dynamo for the hybrid setup (Phase-Ingest)
+    return "dynamo";
 }
 
 /**
@@ -98,6 +95,9 @@ export async function retrieveContext(query: string, repoId: string): Promise<Re
         case "s3":
             rawChunks = await s3Retrieve(query, repoId);
             break;
+        case "dynamo":
+            rawChunks = await dynamoRetrieve(query, repoId);
+            break;
         case "local":
             rawChunks = await localRetrieve(query, repoId);
             break;
@@ -113,7 +113,7 @@ export async function retrieveContext(query: string, repoId: string): Promise<Re
     const normalizedChunks = normalizeScores(topChunks);
 
     const chunkRefs: string[] = [];
-    const useDynamo = mode === "bedrock" || mode === "s3";
+    const useDynamo = mode === "bedrock" || mode === "s3" || mode === "dynamo";
 
     for (const chunk of normalizedChunks) {
         let content = chunk.content;
@@ -242,6 +242,44 @@ async function streamToString(stream: Readable): Promise<string> {
         stream.on("data", (chunk: Buffer) => chunks.push(chunk));
         stream.on("error", reject);
         stream.on("end", () => resolve(Buffer.concat(chunks).toString("utf-8")));
+    });
+}
+
+// ── DYNAMO ADAPTER ───────────────────────────────────────────────
+
+async function dynamoRetrieve(
+    query: string,
+    repoId: string
+): Promise<Array<{ content: string; source: string; score: number }>> {
+    console.log(`[RETRIEVAL] Fetching chunks from DynamoDB for repo: ${repoId}`);
+
+    const response = await dynamo.send(new QueryCommand({
+        TableName: CONTEXT_CHUNKS_TABLE,
+        IndexName: "RepoIndex",
+        KeyConditionExpression: "repo_id = :rid",
+        ExpressionAttributeValues: { ":rid": repoId }
+    }));
+
+    const items = response.Items ?? [];
+    const queryTerms = query.toLowerCase().split(/\s+/);
+
+    return items.map(item => {
+        const content = item.content as string;
+        const lowerContent = content.toLowerCase();
+
+        // Simple keyword scoring
+        let matchCount = 0;
+        for (const term of queryTerms) {
+            if (lowerContent.includes(term)) matchCount++;
+        }
+
+        const score = matchCount / (queryTerms.length || 1);
+
+        return {
+            content,
+            source: item.source as string,
+            score: score > 0 ? score : 0.1 // Base score if ingested
+        };
     });
 }
 

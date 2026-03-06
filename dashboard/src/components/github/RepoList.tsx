@@ -3,10 +3,16 @@
 import { useState, useEffect } from "react";
 import { RepoCard } from "@/components/github/RepoCard";
 import { useRepositories } from "@/hooks/useRepositories";
-import { ShieldCheckIcon, CloudArrowDownIcon, MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import {
+    ShieldCheckIcon,
+    CloudArrowDownIcon,
+    MagnifyingGlassIcon,
+    CheckCircleIcon,
+    GlobeAltIcon
+} from "@heroicons/react/24/outline";
 
 export function RepoList() {
-    const { availableRepos, isLoading, error, connectRepo, fetchAvailable } = useRepositories();
+    const { repositories, availableRepos, isLoading, error, connectRepo, fetchAvailable } = useRepositories();
     const [connectingRepoId, setConnectingRepoId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState("");
 
@@ -25,12 +31,17 @@ export function RepoList() {
         }
     };
 
-    const filteredRepos = availableRepos.filter(repo =>
+    const filteredAvailable = availableRepos.filter(repo =>
         repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         repo.full_name.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    if (isLoading) {
+    const filteredConnected = repositories.filter(repo =>
+        repo.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (repo.full_name && repo.full_name.toLowerCase().includes(searchQuery.toLowerCase()))
+    );
+
+    if (isLoading && repositories.length === 0 && availableRepos.length === 0) {
         return (
             <div className="card flex flex-col items-center justify-center p-12 text-center h-64 animate-pulse">
                 <CloudArrowDownIcon className="h-10 w-10 text-textMuted mb-4" />
@@ -40,7 +51,7 @@ export function RepoList() {
         );
     }
 
-    if (error) {
+    if (error && repositories.length === 0) {
         return (
             <div className="card flex flex-col items-start p-6 border-danger/40 bg-danger/5 gap-3">
                 <div className="flex items-center gap-2">
@@ -58,12 +69,12 @@ export function RepoList() {
     }
 
     return (
-        <div className="space-y-4">
+        <div className="space-y-8">
             <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
                 <div>
-                    <h2 className="text-lg font-semibold text-textMain tracking-tight">Available Repositories</h2>
-                    <p className="text-sm text-textSub mt-0.5">
-                        Select repositories to ingest into NexusOPS for anomaly analysis.
+                    <h2 className="text-xl font-bold text-textMain tracking-tight">GitHub Repositories</h2>
+                    <p className="text-sm text-textSub mt-1">
+                        Manage your connected repositories and discover new ones to ingest.
                     </p>
                 </div>
 
@@ -83,25 +94,55 @@ export function RepoList() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 gap-3">
-                {filteredRepos.length > 0 ? (
-                    filteredRepos.map(repo => (
-                        <RepoCard
-                            key={repo.id}
-                            repo={repo}
-                            onConnect={() => handleConnect(repo)}
-                            isConnecting={connectingRepoId === repo.id}
-                        />
-                    ))
-                ) : (
-                    <div className="card p-8 text-center text-textMuted text-sm border-dashed">
-                        {searchQuery ? "No repositories match your filter." : "No repositories found for this GitHub account."}
+            {/* Connected Repositories Section */}
+            {filteredConnected.length > 0 && (
+                <div className="space-y-4">
+                    <div className="flex items-center gap-2">
+                        <CheckCircleIcon className="h-5 w-5 text-primary" />
+                        <h3 className="text-sm font-semibold text-textMain uppercase tracking-wider">Connected Repositories</h3>
                     </div>
-                )}
+                    <div className="grid grid-cols-1 gap-3">
+                        {filteredConnected.map(repo => (
+                            <RepoCard
+                                key={repo.id}
+                                repo={{ ...repo, connected: true }}
+                                onConnect={() => { }}
+                                isConnecting={false}
+                            />
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* Available Repositories Section */}
+            <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                    <GlobeAltIcon className="h-5 w-5 text-textMuted" />
+                    <h3 className="text-sm font-semibold text-textMain uppercase tracking-wider">Available to Connect</h3>
+                </div>
+                <div className="grid grid-cols-1 gap-3">
+                    {filteredAvailable.length > 0 ? (
+                        filteredAvailable.map(repo => {
+                            const isConnected = repositories.some(r => r.html_url === repo.html_url);
+                            if (isConnected) return null; // Don't show already connected ones in available list
+                            return (
+                                <RepoCard
+                                    key={repo.id}
+                                    repo={repo}
+                                    onConnect={() => handleConnect(repo)}
+                                    isConnecting={connectingRepoId === repo.id}
+                                />
+                            );
+                        })
+                    ) : (
+                        <div className="card p-8 text-center text-textMuted text-sm border-dashed">
+                            {searchQuery ? "No repositories match your filter." : "No additional repositories found for this GitHub account."}
+                        </div>
+                    )}
+                </div>
             </div>
         </div>
     );
 }
 
-// Ensure the default export exists for layout/page consumption
 export default RepoList;

@@ -15,7 +15,7 @@ export function CTA() {
                         NexusOPS transforms intent into verified execution.
                     </p>
 
-                    <Link href="http://localhost:3001/login" className="inline-block bg-primary hover:bg-primary/90 text-white font-medium px-10 py-4 rounded-md transition-colors text-lg">
+                    <Link href="http://localhost:3000/login" className="inline-block bg-primary hover:bg-primary/90 text-white font-medium px-10 py-4 rounded-md transition-colors text-lg">
                         Deploy NexusOPS
                     </Link>
                 </div>

@@ -1,0 +1,49 @@
+
+> nexusops-orchestrator@0.1.0 local
+> ts-node src/local_server.ts
+
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+🚀 Orchestrator Local Bridge running at http://localhost:8001
+Incoming invocations will be processed by the local handler.
+
+[LOCAL BRIDGE] Received invocation for execution: a331f604-7f4a-4b22-a774-740e4130288e
+[LOCAL BRIDGE] Iteration 1 for stage: START
+[HANDLER] Created new execution: a331f604-7f4a-4b22-a774-740e4130288e
+[ASK STAGE] Processing execution: a331f604-7f4a-4b22-a774-740e4130288e
+[TRANSITION] req-1772810023856-nffjmtt | a331f604-7f4a-4b22-a774-740e4130288e | ASK → RETRIEVE | SUCCESS | 2026-03-06T15:13:45.744Z
+[LOCAL BRIDGE] Iteration 2 for stage: RETRIEVE
+[RETRIEVE STAGE] Processing execution: a331f604-7f4a-4b22-a774-740e4130288e
+[INGESTION] Starting ingestion for https://github.com/octocat/Spoon-Knife (ID: https://github.com/octocat/Spoon-Knife)
+[INGESTION] Checking existence of chunks for repo https://github.com/octocat/Spoon-Knife...
+[INGESTION] Repo https://github.com/octocat/Spoon-Knife already has context (1 checked). Skipping.
+{"event":"retrieval_mode_selected","mode":"dynamo"}
+[RETRIEVAL] Fetching chunks from DynamoDB for repo: https://github.com/octocat/Spoon-Knife
+{"event":"RETRIEVAL_COMPLETE","mode":"dynamo","repo_id":"https://github.com/octocat/Spoon-Knife","query":"NexusOPS context retrieval for execution a331f604-7f4a-4b22-a774-740e4130288e","chunks":1,"latency_ms":1379}
+[TRANSITION] req-1772810025807-v4jpj4y | a331f604-7f4a-4b22-a774-740e4130288e | RETRIEVE → REASON | SUCCESS | 2026-03-06T15:13:48.917Z
+[LOCAL BRIDGE] Iteration 3 for stage: REASON
+[REASON STAGE] Processing execution: a331f604-7f4a-4b22-a774-740e4130288e
+[BEDROCK] Invoking model: anthropic.claude-3-sonnet-20240229-v1:0
+[REASON STAGE] Planner invocation failed: AccessDeniedException: Model access is denied due to INVALID_PAYMENT_INSTRUMENT:A valid payment instrument must be provided.. Your AWS Marketplace subscription for this model cannot be completed at this time. If you recently fixed this issue, try again after 2 minutes.
+    at AwsRestJsonProtocol.handleError (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\core\dist-cjs\submodules\protocols\index.js:891:27)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async AwsRestJsonProtocol.deserializeResponse (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\submodules\protocols\index.js:334:13)
+    at async AwsRestJsonProtocol.deserializeResponse (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\core\dist-cjs\submodules\protocols\index.js:876:24)
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\submodules\schema\index.js:26:24
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\index.js:121:20
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\middleware-retry\dist-cjs\index.js:254:46
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\middleware-logger\dist-cjs\index.js:5:26
+    at async invokePlanner (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\src\utils\bedrockClient.ts:88:26)
+    at async reasonStage (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\src\stages\reasonStage.ts:45:27) {
+  '$fault': 'client',
+  '$retryable': undefined,
+  '$metadata': {
+    httpStatusCode: 403,
+    requestId: '0378bee9-8c64-48ac-8737-69febf596e74',
+    extendedRequestId: undefined,
+    cfId: undefined,
+    attempts: 1,
+    totalRetryDelay: 0
+  }
+}
+[TRANSITION] req-1772810028919-appej0q | a331f604-7f4a-4b22-a774-740e4130288e | REASON → FAILED | SUCCESS | 2026-03-06T15:13:52.594Z

@@ -145,7 +145,22 @@ def invoke_orchestrator(
     execution_id = str(uuid.uuid4())
     payload = _sanitize_payload(execution_id, user_id, repo_id, user_input)
 
-    # 1. Try SQS (Asynchronous Trigger) - Preferred for Production
+    # 1. Try Local HTTP Bridge (Local Development)
+    local_url = getattr(config, 'ORCHESTRATOR_LOCAL_URL', None)
+    logger.debug(f"Checking for local orchestrator bridge. URL: {local_url}")
+    
+    if local_url:
+        import requests
+        logger.info(f"Triggering orchestrator via Local Bridge (execution_id: {execution_id}) at {local_url}")
+        try:
+            response = requests.post(config.ORCHESTRATOR_LOCAL_URL, json=payload, timeout=30)
+            if response.ok:
+                return _normalize_lambda_response(response.json(), execution_id)
+            logger.warning(f"Local bridge returned status {response.status_code}")
+        except Exception as e:
+            logger.warning(f"Local bridge invocation failed: {str(e)}")
+
+    # 2. Try SQS (Asynchronous Trigger) - Preferred for Production
     if config.ORCHESTRATOR_QUEUE_URL:
         logger.info(f"Triggering orchestrator via SQS (execution_id: {execution_id})")
         message_id = sqs_client.send_execution_request(payload)

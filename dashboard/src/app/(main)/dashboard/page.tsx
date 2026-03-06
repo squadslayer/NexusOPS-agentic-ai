@@ -5,6 +5,7 @@ import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { apiFetch } from "@/lib/api";
 import { useRepositories, type Repository as Repo } from "@/hooks/useRepositories";
+import ExecutionList from "@/components/executions/ExecutionList";
 import {
     ServerStackIcon,
     ArrowDownTrayIcon,
@@ -159,6 +160,41 @@ function ChatPanel({ isOpen, onClose, repos }: { isOpen: boolean; onClose: () =>
 export default function DashboardPage() {
     const { repositories: repos, isLoading } = useRepositories();
     const [isChatOpen, setIsChatOpen] = useState(false);
+    const [stats, setStats] = useState<any>(null);
+    const [recentExecutions, setRecentExecutions] = useState<any[]>([]);
+    const [statsLoading, setStatsLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchData() {
+            try {
+                const headers = { 'Authorization': `Bearer ${localStorage.getItem('nexusops_token') || ''}` };
+
+                const [statsRes, execsRes] = await Promise.all([
+                    fetch('http://localhost:8000/dashboard/stats', { headers }),
+                    fetch('http://localhost:8000/executions', { headers })
+                ]);
+
+                if (statsRes.ok) {
+                    const json = await statsRes.json();
+                    setStats(json.data);
+                }
+
+                if (execsRes.ok) {
+                    const json = await execsRes.json();
+                    // Sort descending by created_at and take top 5
+                    const sorted = (json.data || []).sort((a: any, b: any) =>
+                        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                    );
+                    setRecentExecutions(sorted.slice(0, 5));
+                }
+            } catch (err) {
+                console.error("Failed to load dashboard data", err);
+            } finally {
+                setStatsLoading(false);
+            }
+        }
+        fetchData();
+    }, []);
 
     const handleExport = () => {
         if (repos.length === 0) {
@@ -301,6 +337,29 @@ export default function DashboardPage() {
                     </div>
                 }
             >
+                {/* Stats Section */}
+                {!statsLoading && stats && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                        <div className="card p-4 border border-[#2A2E35] bg-[#111318]">
+                            <p className="text-gray-400 text-xs font-semibold mb-1 uppercase tracking-wider">Total Executions</p>
+                            <p className="text-3xl font-bold text-white tracking-tight">{stats.total_executions}</p>
+                        </div>
+                        <div className="card p-4 border border-green-900/40 bg-green-900/10 relative overflow-hidden">
+                            <div className="absolute top-0 right-0 w-12 h-12 bg-green-900/30 rounded-bl-full"></div>
+                            <p className="text-green-400 text-xs font-semibold mb-1 uppercase tracking-wider">Success Rate</p>
+                            <p className="text-3xl font-bold text-green-300 tracking-tight">{stats.success_rate}%</p>
+                        </div>
+                        <div className="card p-4 border border-amber-900/40 bg-amber-900/10">
+                            <p className="text-amber-400 text-xs font-semibold mb-1 uppercase tracking-wider">Pending Approval</p>
+                            <p className="text-3xl font-bold text-amber-300 tracking-tight">{stats.pending_approvals}</p>
+                        </div>
+                        <div className="card p-4 border border-red-900/40 bg-red-900/10">
+                            <p className="text-red-400 text-xs font-semibold mb-1 uppercase tracking-wider">Failed Flow Stops</p>
+                            <p className="text-3xl font-bold text-red-300 tracking-tight">{stats.failed_executions}</p>
+                        </div>
+                    </div>
+                )}
+
                 <div className="space-y-4">
                     <div className="flex items-center justify-between">
                         <h2 className="text-sm font-semibold text-textMain">Connected Repositories</h2>
@@ -314,20 +373,20 @@ export default function DashboardPage() {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                         {repos.map((repo) => (
-                            <div key={repo.id} className="card flex flex-col gap-3 p-4">
+                            <div key={repo.id} className="card flex flex-col gap-3 p-4 border border-[#2A2E35]">
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-center gap-2 min-w-0">
                                         <GlobeAltIcon className="h-5 w-5 text-primary shrink-0" />
                                         <div className="min-w-0">
-                                            <p className="text-sm font-semibold text-textMain truncate">
+                                            <p className="text-sm font-semibold text-white truncate">
                                                 {repo.name}
                                             </p>
-                                            <p className="text-xs text-textMuted truncate">
+                                            <p className="text-xs text-gray-400 truncate">
                                                 {repo.html_url}
                                             </p>
                                         </div>
                                     </div>
-                                    <span className="flex items-center gap-1 text-2xs px-2 py-0.5 rounded-full font-medium bg-success/10 text-successText shrink-0">
+                                    <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded uppercase font-bold bg-green-900/40 text-green-400 border border-green-800 shrink-0 tracking-wider font-mono">
                                         <CheckCircleIcon className="h-3 w-3" />
                                         {repo.status || "Ready"}
                                     </span>
@@ -336,7 +395,7 @@ export default function DashboardPage() {
                                     href={repo.html_url}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-xs text-primary hover:underline"
+                                    className="text-xs text-[#FF9900] hover:text-[#FFB347] transition-colors mt-1 font-medium"
                                 >
                                     View on GitHub ↗
                                 </a>
@@ -345,14 +404,30 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                {/* Placeholder for governance data */}
-                <div className="mt-8 card p-8 text-center border-dashed">
-                    <p className="text-sm text-textMuted">
-                        Compliance checks, cost analysis, and resource trends will populate here as the orchestrator completes its analysis.
-                    </p>
-                    <p className="text-xs text-textMuted mt-2">
-                        Use the chat assistant below to query your infrastructure.
-                    </p>
+                {/* Recent Executions Widget */}
+                <div className="mt-8 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-sm font-semibold text-textMain">Recent Agentic Executions</h2>
+                        <Link
+                            href="/executions"
+                            className="text-xs text-primary hover:text-primary/80 font-medium"
+                        >
+                            View All Executions →
+                        </Link>
+                    </div>
+
+                    {!statsLoading && recentExecutions.length > 0 ? (
+                        <ExecutionList executions={recentExecutions} />
+                    ) : (
+                        <div className="card p-8 text-center border-dashed border-[#2A2E35] bg-[#111318]">
+                            <p className="text-sm text-textMuted">
+                                No executions have been run yet.
+                            </p>
+                            <p className="text-xs text-textMuted mt-2">
+                                Use the chat assistant below to query your infrastructure and trigger your first execution.
+                            </p>
+                        </div>
+                    )}
                 </div>
             </PageContainer>
 
@@ -360,7 +435,7 @@ export default function DashboardPage() {
             {!isChatOpen && (
                 <button
                     onClick={() => setIsChatOpen(true)}
-                    className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-white shadow-lg hover:bg-primary/90 flex items-center justify-center transition-all hover:scale-105 z-50"
+                    className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-white shadow-lg shadow-black/50 hover:bg-primary/90 flex items-center justify-center transition-all hover:scale-105 z-50 border border-primary/20"
                     title="Ask NexusOPS"
                 >
                     <ChatBubbleLeftRightIcon className="h-6 w-6" />

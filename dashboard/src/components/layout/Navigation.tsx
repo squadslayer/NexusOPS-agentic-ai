@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -25,6 +26,7 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
         items: [
             { label: "Home", href: "http://localhost:3000", icon: HomeIcon },
             { label: "Dashboard", href: "/dashboard", icon: ChartBarSquareIcon },
+            { label: "Executions", href: "/executions", icon: CpuChipIcon },
             { label: "Repositories", href: "/repositories", icon: ServerStackIcon },
         ],
     },
@@ -54,6 +56,25 @@ const NAV_GROUPS: { heading: string; items: NavItem[] }[] = [
 
 export function Navigation() {
     const pathname = usePathname();
+    const [pendingApprovals, setPendingApprovals] = useState(0);
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                const res = await fetch('http://localhost:8000/dashboard/stats', {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('nexusops_token') || ''}` }
+                });
+                if (res.ok) {
+                    const json = await res.json();
+                    setPendingApprovals(json.data.pending_approvals || 0);
+                }
+            } catch (e) { }
+        };
+        fetchStats();
+        // Poll every 15 seconds to keep the badge up to date
+        const interval = setInterval(fetchStats, 15000);
+        return () => clearInterval(interval);
+    }, []);
 
     return (
         <aside
@@ -103,6 +124,11 @@ export function Navigation() {
                                                 aria-hidden
                                             />
                                             {item.label}
+                                            {item.label === "Executions" && pendingApprovals > 0 && (
+                                                <span className="ml-auto bg-amber-500 text-black text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse">
+                                                    {pendingApprovals}
+                                                </span>
+                                            )}
                                         </Link>
                                     </li>
                                 );
