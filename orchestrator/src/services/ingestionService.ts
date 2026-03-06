@@ -21,22 +21,45 @@ const dynamo = DynamoDBDocumentClient.from(new DynamoDBClient({ region }));
 /**
  * Ingests a repository: clones, chunks, and stores in DynamoDB.
  */
-export async function ingestRepository(repoUrl: string, repoId: string): Promise<number> {
-    console.log(`[INGESTION] Starting ingestion for ${repoUrl} (ID: ${repoId})`);
+export async function ingestRepository(repoUrl: string, repoId: string, userId: string): Promise<number> {
+    console.log(`[INGESTION] Starting ingestion for ${repoUrl} (Repo: ${repoId}, User: ${userId})`);
 
-    // 1. Check if already ingested (simplified check)
+    // 1. Fetch User's GitHub Token from DynamoDB
+    let token: string | undefined;
     try {
-        console.log(`[INGESTION] Checking existence of chunks for repo ${repoId}...`);
+        const tokenResponse = await dynamo.send(new QueryCommand({
+            TableName: "GitHubTokens",
+            KeyConditionExpression: "user_id = :uid",
+            ExpressionAttributeValues: { ":uid": userId },
+            Limit: 1
+        }));
+
+        if (tokenResponse.Items && tokenResponse.Items.length > 0) {
+            token = tokenResponse.Items[0].access_token;
+            console.log(`[INGESTION] Retrieved OAuth token for user ${userId}.`);
+        }
+    } catch (tokenErr) {
+        console.warn(`[INGESTION] Could not fetch user token, falling back to environment PAT.`, tokenErr);
+        token = process.env.GITHUB_API_TOKEN;
+    }
+
+    // 2. Check if already ingested for THIS USER (isolation check)
+    try {
+        console.log(`[INGESTION] Checking existence of chunks for repo ${repoId} (User: ${userId})...`);
         const existing = await dynamo.send(new QueryCommand({
             TableName: CONTEXT_CHUNKS_TABLE,
             IndexName: "RepoIndex",
             KeyConditionExpression: "repo_id = :rid",
-            ExpressionAttributeValues: { ":rid": repoId },
+            FilterExpression: "user_id = :uid", // Ensure this user has the context
+            ExpressionAttributeValues: {
+                ":rid": repoId,
+                ":uid": userId
+            },
             Limit: 1
         }));
 
         if (existing.Items && existing.Items.length > 0) {
-            console.log(`[INGESTION] Repo ${repoId} already has context (${existing.Items.length} checked). Skipping.`);
+            console.log(`[INGESTION] Repo ${repoId} already has context for user ${userId}. Skipping.`);
             return existing.Items.length;
         }
     } catch (queryError) {
@@ -46,14 +69,10 @@ export async function ingestRepository(repoUrl: string, repoId: string): Promise
     const tempDir = path.join(os.tmpdir(), `nexusops-ingest-${repoId.replace(/[^a-zA-Z0-9]/g, '-')}-${Date.now()}`);
 
     try {
-        // 2. Clone Repository
-        const token = process.env.GITHUB_API_TOKEN;
+        // 3. Clone Repository
         let authenticatedUrl = repoUrl;
-
         if (token && token !== "YOUR_GITHUB_PAT_HERE" && repoUrl.includes("github.com")) {
-            // Inject token for private repo access: https://<token>@github.com/owner/repo
             authenticatedUrl = repoUrl.replace("https://", `https://${token}@`);
-            console.log(`[INGESTION] Using provided GITHUB_API_TOKEN for cloning...`);
         }
 
         console.log(`[INGESTION] Cloning repo into ${tempDir}...`);
@@ -64,11 +83,11 @@ export async function ingestRepository(repoUrl: string, repoId: string): Promise
         });
         console.log(`[INGESTION] Clone complete.`);
 
-        // 3. Crawl and Chunk
+        // 4. Crawl and Chunk
         const chunks = crawlAndChunk(tempDir);
         console.log(`[INGESTION] Found ${chunks.length} chunks.`);
 
-        // 4. Store in DynamoDB
+        // 5. Store in DynamoDB
         let count = 0;
         for (const chunk of chunks) {
             const chunkId = `chunk-${repoId}-${Date.now()}-${count}`;
@@ -79,16 +98,17 @@ export async function ingestRepository(repoUrl: string, repoId: string): Promise
                 Item: {
                     chunk_id: chunkId,
                     repo_id: repoId,
+                    user_id: userId, // Multi-tenant tag
                     content: chunk.content,
                     source: chunk.source,
-                    score: 1.0, // Base score for ingested files
+                    score: 1.0,
                     ttl
                 }
             }));
             count++;
         }
 
-        console.log(`[INGESTION] Successfully ingested ${count} chunks.`);
+        console.log(`[INGESTION] Successfully ingested ${count} chunks for user ${userId}.`);
         return count;
 
     } catch (error) {

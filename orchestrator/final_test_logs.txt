@@ -1,0 +1,52 @@
+
+> nexusops-orchestrator@0.1.0 local
+> ts-node src/local_server.ts
+
+[dotenv@17.3.1] injecting env (0) from .env -- tip: ⚙️  specify custom .env file path with { path: '/custom/path/.env' }
+
+🚀 Orchestrator Local Bridge running at http://localhost:8001
+Incoming invocations will be processed by the local handler.
+
+[LOCAL BRIDGE] Received invocation for execution: 059e0921-17a4-4315-b742-b3763b0d207a
+[LOCAL BRIDGE] Iteration 1 for stage: START
+[HANDLER] Created new execution: 059e0921-17a4-4315-b742-b3763b0d207a
+[ASK STAGE] Processing execution: 059e0921-17a4-4315-b742-b3763b0d207a
+[TRANSITION] req-1772811621989-4oi08j3 | 059e0921-17a4-4315-b742-b3763b0d207a | ASK → RETRIEVE | SUCCESS | 2026-03-06T15:40:23.901Z
+[LOCAL BRIDGE] Iteration 2 for stage: RETRIEVE
+[RETRIEVE STAGE] Processing execution: 059e0921-17a4-4315-b742-b3763b0d207a
+[INGESTION] Starting ingestion for https://github.com/octocat/Spoon-Knife (Repo: https://github.com/octocat/Spoon-Knife, User: local-dev-user)
+[INGESTION] Checking existence of chunks for repo https://github.com/octocat/Spoon-Knife (User: local-dev-user)...
+[INGESTION] Cloning repo into C:\Users\KRISHN~1\AppData\Local\Temp\nexusops-ingest-https---github-com-octocat-Spoon-Knife-1772811625660...
+[INGESTION] Clone complete.
+[INGESTION] Found 1 chunks.
+[INGESTION] Successfully ingested 1 chunks for user local-dev-user.
+{"event":"retrieval_mode_selected","mode":"dynamo"}
+[RETRIEVAL] Fetching chunks from DynamoDB for repo: https://github.com/octocat/Spoon-Knife, user: local-dev-user
+{"event":"RETRIEVAL_COMPLETE","mode":"dynamo","repo_id":"https://github.com/octocat/Spoon-Knife","query":"NexusOPS context retrieval for execution 059e0921-17a4-4315-b742-b3763b0d207a","chunks":1,"latency_ms":1407}
+[TRANSITION] req-1772811623968-lep5l44 | 059e0921-17a4-4315-b742-b3763b0d207a | RETRIEVE → REASON | SUCCESS | 2026-03-06T15:40:29.116Z
+[LOCAL BRIDGE] Iteration 3 for stage: REASON
+[REASON STAGE] Processing execution: 059e0921-17a4-4315-b742-b3763b0d207a
+[BEDROCK] Invoking model: anthropic.claude-3-sonnet-20240229-v1:0
+[REASON STAGE] Planner invocation failed: AccessDeniedException: Model access is denied due to INVALID_PAYMENT_INSTRUMENT:A valid payment instrument must be provided.. Your AWS Marketplace subscription for this model cannot be completed at this time. If you recently fixed this issue, try again after 2 minutes.
+    at AwsRestJsonProtocol.handleError (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\core\dist-cjs\submodules\protocols\index.js:891:27)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async AwsRestJsonProtocol.deserializeResponse (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\submodules\protocols\index.js:334:13)
+    at async AwsRestJsonProtocol.deserializeResponse (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\core\dist-cjs\submodules\protocols\index.js:876:24)
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\submodules\schema\index.js:26:24
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\index.js:121:20
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\middleware-retry\dist-cjs\index.js:254:46
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\middleware-logger\dist-cjs\index.js:5:26
+    at async invokePlanner (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\src\utils\bedrockClient.ts:94:26)
+    at async reasonStage (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\src\stages\reasonStage.ts:45:27) {
+  '$fault': 'client',
+  '$retryable': undefined,
+  '$metadata': {
+    httpStatusCode: 403,
+    requestId: '27cedf88-9459-4ccd-8874-173c1ec647eb',
+    extendedRequestId: undefined,
+    cfId: undefined,
+    attempts: 1,
+    totalRetryDelay: 0
+  }
+}
+[TRANSITION] req-1772811629119-w27m8nh | 059e0921-17a4-4315-b742-b3763b0d207a | REASON → FAILED | SUCCESS | 2026-03-06T15:40:32.921Z

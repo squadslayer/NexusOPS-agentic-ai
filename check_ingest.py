@@ -17,17 +17,27 @@ def check_tables():
     response = table.scan()
     items = sorted(response.get('Items', []), key=lambda x: x.get('execution_id', ''), reverse=True)
     for item in items[:5]:
-        print(f"ID: {item.get('execution_id')} | Status: {item.get('status')} | Stage: {item.get('stage')} | Repo: {item.get('repo_id')}")
+        print(f"ID: {item.get('execution_id')} | User: {item.get('user_id')} | Progress: {item.get('stage')} | Repo: {item.get('repo_id')}")
 
-    print("\nChecking ContextChunks totals...")
+    print("\nChecking ContextChunks for User Isolation...")
     table_chunks = dynamodb.Table('ContextChunks')
-    response_chunks = table_chunks.scan(Select='COUNT')
-    print(f"Total Chunks: {response_chunks.get('Count')}")
+    response_chunks = table_chunks.scan()
+    items = response_chunks.get('Items', [])
+    print(f"Total Chunks: {len(items)}")
     
-    if response_chunks.get('Count') > 0:
-        response_data = table_chunks.scan(Limit=5)
-        for item in response_data.get('Items', []):
-            print(f"Chunk ID: {item.get('chunk_id')} | Repo: {item.get('repo_id')} | Source: {item.get('source')}")
+    # Group by user
+    user_counts = {}
+    for item in items:
+        uid = item.get('user_id', 'MISSING')
+        user_counts[uid] = user_counts.get(uid, 0) + 1
+        
+    for uid, count in user_counts.items():
+        print(f"User: {uid} -> {count} chunks")
+
+    if items:
+        print("\nRecent 3 chunks detail:")
+        for item in items[:3]:
+             print(f"Chunk: {item.get('chunk_id')} | User: {item.get('user_id')} | Repo: {item.get('repo_id')}")
 
 if __name__ == "__main__":
     check_tables()

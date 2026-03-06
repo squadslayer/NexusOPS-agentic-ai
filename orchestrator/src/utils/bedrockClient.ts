@@ -27,7 +27,13 @@ const modelId = process.env.BEDROCK_MODEL_ID;
 const guardrailId = process.env.GUARDRAIL_ID;
 const guardrailVersion = process.env.GUARDRAIL_VERSION ?? "1";
 
-const client = new BedrockRuntimeClient({ region });
+const apiKey = process.env.BEDROCK_API_KEY;
+
+// Initialize client with region and optional API Key
+const client = new BedrockRuntimeClient({
+    region,
+    ...(apiKey && apiKey !== "YOUR_API_KEY_HERE" ? { apiKey } : {})
+});
 
 /**
  * Structured response from the planner model.

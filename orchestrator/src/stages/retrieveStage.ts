@@ -39,14 +39,14 @@ export async function retrieveStage(execution: Readonly<Execution>): Promise<Sta
             }
         }
 
-        await ingestRepository(repoUrl, execution.repo_id);
+        await ingestRepository(repoUrl, execution.repo_id, execution.user_id);
     } catch (ingestError) {
         console.warn(`[RETRIEVE STAGE] Ingestion failed, proceeding with fallback.`, ingestError);
     }
 
-    const retrieval = await retrieveContext(query, execution.repo_id);
+    const result = await retrieveContext(query, execution.repo_id, execution.user_id);
 
-    if (retrieval.chunk_refs.length === 0) {
+    if (result.chunk_refs.length === 0) {
         console.error(`[RETRIEVE STAGE] Empty retrieval — cannot proceed to REASON`);
         return {
             nextStage: Stage.FAILED,
@@ -54,7 +54,7 @@ export async function retrieveStage(execution: Readonly<Execution>): Promise<Sta
             output: {
                 message: "RETRIEVE stage failed: no context retrieved",
                 execution_id: execution.execution_id,
-                query: retrieval.query,
+                query: result.query,
             },
         };
     }
@@ -64,9 +64,9 @@ export async function retrieveStage(execution: Readonly<Execution>): Promise<Sta
         output: {
             message: "RETRIEVE stage completed",
             execution_id: execution.execution_id,
-            context_refs: retrieval.chunk_refs,
-            query: retrieval.query,
-            retrieved_at: retrieval.retrieved_at,
+            context_refs: result.chunk_refs,
+            query: result.query,
+            retrieved_at: result.retrieved_at,
         },
     };
 }

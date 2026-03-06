@@ -1,0 +1,136 @@
+
+> nexusops-orchestrator@0.1.0 local
+> ts-node src/local_server.ts
+
+[dotenv@17.3.1] injecting env (0) from .env -- tip: 🛠️  run anywhere with `dotenvx run -- yourcommand`
+
+🚀 Orchestrator Local Bridge running at http://localhost:8001
+Incoming invocations will be processed by the local handler.
+
+[LOCAL BRIDGE] Received invocation for execution: 433ecc3c-4bc7-454b-8cc2-3bede0e6d5fa
+[LOCAL BRIDGE] Iteration 1 for stage: START
+[HANDLER] Created new execution: 433ecc3c-4bc7-454b-8cc2-3bede0e6d5fa
+[ASK STAGE] Processing execution: 433ecc3c-4bc7-454b-8cc2-3bede0e6d5fa
+[TRANSITION] req-1772810663927-wvt9nzd | 433ecc3c-4bc7-454b-8cc2-3bede0e6d5fa | ASK → RETRIEVE | SUCCESS | 2026-03-06T15:24:25.837Z
+[LOCAL BRIDGE] Iteration 2 for stage: RETRIEVE
+[RETRIEVE STAGE] Processing execution: 433ecc3c-4bc7-454b-8cc2-3bede0e6d5fa
+[INGESTION] Starting ingestion for https://github.com/octocat/Spoon-Knife (Repo: https://github.com/octocat/Spoon-Knife, User: user-beta)
+[INGESTION] Checking existence of chunks for repo https://github.com/octocat/Spoon-Knife (User: user-beta)...
+[INGESTION] Cloning repo into C:\Users\KRISHN~1\AppData\Local\Temp\nexusops-ingest-https---github-com-octocat-Spoon-Knife-1772810667559...
+[INGESTION] Clone complete.
+[INGESTION] Found 1 chunks.
+[INGESTION] Successfully ingested 1 chunks for user user-beta.
+{"event":"retrieval_mode_selected","mode":"dynamo"}
+[RETRIEVAL] Fetching chunks from DynamoDB for repo: https://github.com/octocat/Spoon-Knife, user: user-beta
+{"event":"RETRIEVAL_COMPLETE","mode":"dynamo","repo_id":"https://github.com/octocat/Spoon-Knife","query":"NexusOPS context retrieval for execution 433ecc3c-4bc7-454b-8cc2-3bede0e6d5fa","chunks":2,"latency_ms":1632}
+[TRANSITION] req-1772810665902-fsusqgh | 433ecc3c-4bc7-454b-8cc2-3bede0e6d5fa | RETRIEVE → REASON | SUCCESS | 2026-03-06T15:24:31.484Z
+[LOCAL BRIDGE] Iteration 3 for stage: REASON
+[REASON STAGE] Processing execution: 433ecc3c-4bc7-454b-8cc2-3bede0e6d5fa
+[BEDROCK] Invoking model: anthropic.claude-3-sonnet-20240229-v1:0
+[REASON STAGE] Planner invocation failed: AccessDeniedException: Model access is denied due to INVALID_PAYMENT_INSTRUMENT:A valid payment instrument must be provided.. Your AWS Marketplace subscription for this model cannot be completed at this time. If you recently fixed this issue, try again after 2 minutes.
+    at AwsRestJsonProtocol.handleError (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\core\dist-cjs\submodules\protocols\index.js:891:27)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async AwsRestJsonProtocol.deserializeResponse (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\submodules\protocols\index.js:334:13)
+    at async AwsRestJsonProtocol.deserializeResponse (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\core\dist-cjs\submodules\protocols\index.js:876:24)
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\submodules\schema\index.js:26:24
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\index.js:121:20
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\middleware-retry\dist-cjs\index.js:254:46
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\middleware-logger\dist-cjs\index.js:5:26
+    at async invokePlanner (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\src\utils\bedrockClient.ts:88:26)
+    at async reasonStage (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\src\stages\reasonStage.ts:45:27) {
+  '$fault': 'client',
+  '$retryable': undefined,
+  '$metadata': {
+    httpStatusCode: 403,
+    requestId: '734e0ab7-27fe-4490-ad87-9059cf54c6f1',
+    extendedRequestId: undefined,
+    cfId: undefined,
+    attempts: 1,
+    totalRetryDelay: 0
+  }
+}
+[TRANSITION] req-1772810671487-4rximzn | 433ecc3c-4bc7-454b-8cc2-3bede0e6d5fa | REASON → FAILED | SUCCESS | 2026-03-06T15:24:35.084Z
+[LOCAL BRIDGE] Received invocation for execution: 99d4cb56-430c-4f1f-b676-074c053c7bcc
+[LOCAL BRIDGE] Iteration 1 for stage: START
+[HANDLER] Created new execution: 99d4cb56-430c-4f1f-b676-074c053c7bcc
+[ASK STAGE] Processing execution: 99d4cb56-430c-4f1f-b676-074c053c7bcc
+[TRANSITION] req-1772810851478-cf7za14 | 99d4cb56-430c-4f1f-b676-074c053c7bcc | ASK → RETRIEVE | SUCCESS | 2026-03-06T15:27:33.146Z
+[LOCAL BRIDGE] Iteration 2 for stage: RETRIEVE
+[RETRIEVE STAGE] Processing execution: 99d4cb56-430c-4f1f-b676-074c053c7bcc
+[INGESTION] Starting ingestion for https://github.com/octocat/Spoon-Knife (Repo: https://github.com/octocat/Spoon-Knife, User: user-alpha)
+[INGESTION] Retrieved OAuth token for user user-alpha.
+[INGESTION] Checking existence of chunks for repo https://github.com/octocat/Spoon-Knife (User: user-alpha)...
+[INGESTION] Cloning repo into C:\Users\KRISHN~1\AppData\Local\Temp\nexusops-ingest-https---github-com-octocat-Spoon-Knife-1772810854723...
+[INGESTION] Clone complete.
+[INGESTION] Found 1 chunks.
+[INGESTION] Successfully ingested 1 chunks for user user-alpha.
+{"event":"retrieval_mode_selected","mode":"dynamo"}
+[RETRIEVAL] Fetching chunks from DynamoDB for repo: https://github.com/octocat/Spoon-Knife, user: user-alpha
+{"event":"RETRIEVAL_COMPLETE","mode":"dynamo","repo_id":"https://github.com/octocat/Spoon-Knife","query":"NexusOPS context retrieval for execution 99d4cb56-430c-4f1f-b676-074c053c7bcc","chunks":2,"latency_ms":1682}
+[TRANSITION] req-1772810853150-9s1mn3f | 99d4cb56-430c-4f1f-b676-074c053c7bcc | RETRIEVE → REASON | SUCCESS | 2026-03-06T15:27:38.614Z
+[LOCAL BRIDGE] Iteration 3 for stage: REASON
+[REASON STAGE] Processing execution: 99d4cb56-430c-4f1f-b676-074c053c7bcc
+[BEDROCK] Invoking model: anthropic.claude-3-sonnet-20240229-v1:0
+[REASON STAGE] Planner invocation failed: AccessDeniedException: Model access is denied due to INVALID_PAYMENT_INSTRUMENT:A valid payment instrument must be provided.. Your AWS Marketplace subscription for this model cannot be completed at this time. If you recently fixed this issue, try again after 2 minutes.
+    at AwsRestJsonProtocol.handleError (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\core\dist-cjs\submodules\protocols\index.js:891:27)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async AwsRestJsonProtocol.deserializeResponse (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\submodules\protocols\index.js:334:13)
+    at async AwsRestJsonProtocol.deserializeResponse (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\core\dist-cjs\submodules\protocols\index.js:876:24)
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\submodules\schema\index.js:26:24
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\index.js:121:20
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\middleware-retry\dist-cjs\index.js:254:46
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\middleware-logger\dist-cjs\index.js:5:26
+    at async invokePlanner (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\src\utils\bedrockClient.ts:88:26)
+    at async reasonStage (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\src\stages\reasonStage.ts:45:27) {
+  '$fault': 'client',
+  '$retryable': undefined,
+  '$metadata': {
+    httpStatusCode: 403,
+    requestId: '86fb48e4-3c74-42dc-9ac1-022d7a8e58f1',
+    extendedRequestId: undefined,
+    cfId: undefined,
+    attempts: 1,
+    totalRetryDelay: 0
+  }
+}
+[TRANSITION] req-1772810858617-hal21ej | 99d4cb56-430c-4f1f-b676-074c053c7bcc | REASON → FAILED | SUCCESS | 2026-03-06T15:27:42.038Z
+[LOCAL BRIDGE] Received invocation for execution: 8f00cc84-b02d-4501-a134-e2e7cdd3a468
+[LOCAL BRIDGE] Iteration 1 for stage: START
+[HANDLER] Created new execution: 8f00cc84-b02d-4501-a134-e2e7cdd3a468
+[ASK STAGE] Processing execution: 8f00cc84-b02d-4501-a134-e2e7cdd3a468
+[TRANSITION] req-1772810862062-6gzktcu | 8f00cc84-b02d-4501-a134-e2e7cdd3a468 | ASK → RETRIEVE | SUCCESS | 2026-03-06T15:27:43.044Z
+[LOCAL BRIDGE] Iteration 2 for stage: RETRIEVE
+[RETRIEVE STAGE] Processing execution: 8f00cc84-b02d-4501-a134-e2e7cdd3a468
+[INGESTION] Starting ingestion for https://github.com/octocat/Spoon-Knife (Repo: https://github.com/octocat/Spoon-Knife, User: user-beta)
+[INGESTION] Checking existence of chunks for repo https://github.com/octocat/Spoon-Knife (User: user-beta)...
+[INGESTION] Repo https://github.com/octocat/Spoon-Knife already has context for user user-beta. Skipping.
+{"event":"retrieval_mode_selected","mode":"dynamo"}
+[RETRIEVAL] Fetching chunks from DynamoDB for repo: https://github.com/octocat/Spoon-Knife, user: user-beta
+{"event":"RETRIEVAL_COMPLETE","mode":"dynamo","repo_id":"https://github.com/octocat/Spoon-Knife","query":"NexusOPS context retrieval for execution 8f00cc84-b02d-4501-a134-e2e7cdd3a468","chunks":4,"latency_ms":1637}
+[TRANSITION] req-1772810863047-hlj6a9s | 8f00cc84-b02d-4501-a134-e2e7cdd3a468 | RETRIEVE → REASON | SUCCESS | 2026-03-06T15:27:45.960Z
+[LOCAL BRIDGE] Iteration 3 for stage: REASON
+[REASON STAGE] Processing execution: 8f00cc84-b02d-4501-a134-e2e7cdd3a468
+[BEDROCK] Invoking model: anthropic.claude-3-sonnet-20240229-v1:0
+[REASON STAGE] Planner invocation failed: AccessDeniedException: Model access is denied due to INVALID_PAYMENT_INSTRUMENT:A valid payment instrument must be provided.. Your AWS Marketplace subscription for this model cannot be completed at this time. If you recently fixed this issue, try again after 2 minutes.
+    at AwsRestJsonProtocol.handleError (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\core\dist-cjs\submodules\protocols\index.js:891:27)
+    at processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async AwsRestJsonProtocol.deserializeResponse (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\submodules\protocols\index.js:334:13)
+    at async AwsRestJsonProtocol.deserializeResponse (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\core\dist-cjs\submodules\protocols\index.js:876:24)
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\submodules\schema\index.js:26:24
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\core\dist-cjs\index.js:121:20
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@smithy\middleware-retry\dist-cjs\index.js:254:46
+    at async C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\node_modules\@aws-sdk\middleware-logger\dist-cjs\index.js:5:26
+    at async invokePlanner (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\src\utils\bedrockClient.ts:88:26)
+    at async reasonStage (C:\Users\Krishna Sharma\OneDrive\Desktop\NexusOPS-agentic-ai\orchestrator\src\stages\reasonStage.ts:45:27) {
+  '$fault': 'client',
+  '$retryable': undefined,
+  '$metadata': {
+    httpStatusCode: 403,
+    requestId: '09a23432-542d-42c6-8098-1f8a72a94b3b',
+    extendedRequestId: undefined,
+    cfId: undefined,
+    attempts: 1,
+    totalRetryDelay: 0
+  }
+}
+[TRANSITION] req-1772810865965-n9gfnmv | 8f00cc84-b02d-4501-a134-e2e7cdd3a468 | REASON → FAILED | SUCCESS | 2026-03-06T15:27:49.316Z

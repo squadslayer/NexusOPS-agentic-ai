@@ -80,7 +80,7 @@ function resolveMode(repoId: string): RetrievalMode {
  *   6. Store chunks in ContextChunks (DynamoDB or in-memory) with 24h TTL
  *   7. Return chunk references + metrics
  */
-export async function retrieveContext(query: string, repoId: string): Promise<RetrievalResult> {
+export async function retrieveContext(query: string, repoId: string, userId: string): Promise<RetrievalResult> {
     const mode = resolveMode(repoId);
     const startTime = Date.now();
 
@@ -96,7 +96,7 @@ export async function retrieveContext(query: string, repoId: string): Promise<Re
             rawChunks = await s3Retrieve(query, repoId);
             break;
         case "dynamo":
-            rawChunks = await dynamoRetrieve(query, repoId);
+            rawChunks = await dynamoRetrieve(query, repoId, userId);
             break;
         case "local":
             rawChunks = await localRetrieve(query, repoId);
@@ -129,7 +129,15 @@ export async function retrieveContext(query: string, repoId: string): Promise<Re
         if (useDynamo) {
             await dynamo.send(new PutCommand({
                 TableName: CONTEXT_CHUNKS_TABLE,
-                Item: { chunk_id: chunkId, content, source: chunk.source, score: chunk.score, ttl },
+                Item: {
+                    chunk_id: chunkId,
+                    repo_id: repoId,
+                    user_id: userId,
+                    content,
+                    source: chunk.source,
+                    score: chunk.score,
+                    ttl
+                },
             }));
         } else {
             localChunkStore.set(chunkId, { content, source: chunk.source, score: chunk.score, ttl });
@@ -249,15 +257,20 @@ async function streamToString(stream: Readable): Promise<string> {
 
 async function dynamoRetrieve(
     query: string,
-    repoId: string
+    repoId: string,
+    userId: string
 ): Promise<Array<{ content: string; source: string; score: number }>> {
-    console.log(`[RETRIEVAL] Fetching chunks from DynamoDB for repo: ${repoId}`);
+    console.log(`[RETRIEVAL] Fetching chunks from DynamoDB for repo: ${repoId}, user: ${userId}`);
 
     const response = await dynamo.send(new QueryCommand({
         TableName: CONTEXT_CHUNKS_TABLE,
         IndexName: "RepoIndex",
         KeyConditionExpression: "repo_id = :rid",
-        ExpressionAttributeValues: { ":rid": repoId }
+        FilterExpression: "user_id = :uid", // User isolation
+        ExpressionAttributeValues: {
+            ":rid": repoId,
+            ":uid": userId
+        }
     }));
 
     const items = response.Items ?? [];
