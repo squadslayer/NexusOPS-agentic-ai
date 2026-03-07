@@ -59,8 +59,9 @@ export async function apiFetch(url: string, options: any = {}) {
     } catch (err: any) {
         console.error(`[apiFetch] CRITICAL ERROR for ${fullUrl}:`, err);
         // Special log for CORS/Network failures
-        if (err instanceof TypeError && err.message === 'Failed to fetch') {
-            console.error(`[apiFetch] Possible CORS block or Backend Offline! Check that ${bffUrl} is reachable.`);
+        if (err instanceof TypeError && (err.message === 'Failed to fetch' || err.message.includes('NetworkError'))) {
+            console.error(`[apiFetch] Possible CORS block or Backend Offline!`);
+            console.error(`[apiFetch] Ensure ${bffUrl} is reachable and that this domain is in allowed_origins.`);
         }
         throw err;
     }

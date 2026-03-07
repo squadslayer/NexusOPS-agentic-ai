@@ -23,13 +23,16 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         // 1. First check if a new token just arrived in the URL
         const token = searchParams.get("token");
         if (token) {
+            console.log("[AuthGuard] New token detected in URL, saving to nexusops_token...");
             localStorage.setItem("nexusops_token", token);
-            // Clean the URL
+
+            // Clean the URL without a full page reload if possible
             const url = new URL(window.location.href);
             url.searchParams.delete("token");
-            window.history.replaceState({}, "", url.toString());
-            // Force reload to pick up the new token in useGitHubUser
-            window.location.reload();
+
+            // We use router.replace to the clean dashboard URL
+            // This will re-trigger the AuthGuard useEffect but without the token
+            router.replace("/dashboard");
             return;
         }
 

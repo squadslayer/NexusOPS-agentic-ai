@@ -30,17 +30,21 @@ export function useGitHubUser(): UseGitHubUserReturn {
             return;
         }
         try {
+            console.log("[useGitHubUser] Checking session with nexusops_token...");
             const res = await apiFetch("/auth/me");
             if (res.ok) {
                 const json = await res.json();
                 const data = json.data ?? json;
+                console.log("[useGitHubUser] Auth check success:", data.login);
                 setUser(data);
             } else {
+                console.error("[useGitHubUser] Auth check failed with status:", res.status);
                 // Token invalid / expired
                 localStorage.removeItem("nexusops_token");
                 setUser(null);
             }
-        } catch {
+        } catch (err) {
+            console.error("[useGitHubUser] CRITICAL fetch error:", err);
             setUser(null);
         } finally {
             setIsLoading(false);
