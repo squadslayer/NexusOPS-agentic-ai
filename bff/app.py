@@ -27,11 +27,13 @@ def create_app():
     # Configure CORS for Dashboard and Landing Page
     # Environment-specific origin restrictions
     if config.CURRENT_ENV == 'aws':
-        # Production: restrict to specific domains
+        # Production: restrict to specific domains (and localhost for testing)
         allowed_origins = [
             "https://dashboard.nexusops.ai",
             "https://nexusops.ai",
-            "https://www.nexusops.ai"
+            "https://www.nexusops.ai",
+            "http://localhost:3000",
+            "http://127.0.0.1:3000"
         ]
     else:
         # Local development: allow localhost

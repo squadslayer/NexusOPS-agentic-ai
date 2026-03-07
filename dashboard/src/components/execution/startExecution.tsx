@@ -18,7 +18,7 @@ export function StartExecution({ repoUrl, repoName }: StartExecutionProps) {
         setErrorMsg(null);
 
         try {
-            const res = await apiFetch("/execution/start", {
+            const res = await apiFetch("/executions/start", {
                 method: "POST",
                 body: JSON.stringify({
                     repository_url: repoUrl,

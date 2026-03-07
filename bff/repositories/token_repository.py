@@ -2,13 +2,16 @@ from datetime import datetime
 from bff.db.dynamodb import get_table
 from bff.models.github_token import GithubToken
 from botocore.exceptions import ClientError
+from bff import config
 import logging
 
 logger = logging.getLogger(__name__)
 
 class TokenRepository:
     def __init__(self):
+        table_name = getattr(config, 'DYNAMODB_TABLE_GITHUB_TOKENS', 'GitHubTokens')
         self.table = get_table('GitHubTokens')
+        logger.info(f"TokenRepository initialized using table: {self.table.table_name}")
 
     def store_token(self, token_data: GithubToken):
         """Stores or updates a GitHub OAuth token."""
@@ -19,7 +22,7 @@ class TokenRepository:
             item['updated_at'] = item['updated_at'].isoformat()
             
             self.table.put_item(Item=item)
-            logger.info(f"Stored token for user {token_data.user_id}, repo {token_data.repo_id}")
+            logger.info(f"DynamoDB PutItem Success on {self.table.table_name} for user_id={item['user_id']} repo_id={item['repo_id']}")
             return True
         except Exception as e:
             logger.error(f"Error storing token: {e}")

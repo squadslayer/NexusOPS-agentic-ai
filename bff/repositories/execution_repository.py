@@ -11,17 +11,13 @@ class ExecutionRepository:
 
     def create_execution(self, execution_data: ExecutionRecord):
         """Initializes a new execution record."""
-        try:
-            item = execution_data.model_dump()
-            item['created_at'] = item['created_at'].isoformat()
-            item['updated_at'] = item['updated_at'].isoformat()
-            
-            self.table.put_item(Item=item)
-            logger.info(f"Created execution {execution_data.execution_id} for user {execution_data.user_id}")
-            return True
-        except Exception as e:
-            logger.error(f"Error creating execution: {e}")
-            return False
+        item = execution_data.model_dump()
+        item['created_at'] = item['created_at'].isoformat()
+        item['updated_at'] = item['updated_at'].isoformat()
+        
+        self.table.put_item(Item=item)
+        logger.info(f"Created execution {execution_data.execution_id} for user {execution_data.user_id}")
+        return True
 
     def update_execution_status(self, user_id: str, execution_id: str, status: ExecutionStatus, result: dict = None):
         """Updates the status and results of an execution with optimistic locking."""
@@ -88,9 +84,10 @@ class ExecutionRepository:
     def get_executions_by_repo(self, user_id: str, repo_id: str):
         """Retrieves all execution records for a specific repository."""
         try:
+            # Query by user_id (Partition Key) and filter by repo_id
             response = self.table.query(
-                IndexName="UserRepoIndex",
-                KeyConditionExpression="user_id = :uid AND repo_id = :rid",
+                KeyConditionExpression="user_id = :uid",
+                FilterExpression="repo_id = :rid",
                 ExpressionAttributeValues={":uid": user_id, ":rid": repo_id}
             )
             items = response.get('Items', [])
@@ -107,9 +104,10 @@ class ExecutionRepository:
     def get_executions_by_status(self, user_id: str, status: ExecutionStatus):
         """Retrieves all execution records for a specific status."""
         try:
+            # Query by user_id (Partition Key) and filter by status
             response = self.table.query(
-                IndexName="UserStatusIndex",
-                KeyConditionExpression="user_id = :uid AND #stat = :s",
+                KeyConditionExpression="user_id = :uid",
+                FilterExpression="#stat = :s",
                 ExpressionAttributeValues={":uid": user_id, ":s": status.value},
                 ExpressionAttributeNames={"#stat": "status"}
             )
@@ -127,30 +125,39 @@ class ExecutionRepository:
     def get_all_executions(self, user_id: str):
         """Retrieves all execution records for a specific user."""
         try:
+            logger.info(f"Querying all executions for user: {user_id}")
             response = self.table.query(
                 KeyConditionExpression="user_id = :uid",
                 ExpressionAttributeValues={":uid": user_id}
             )
             items = response.get('Items', [])
+            logger.info(f"Found {len(items)} raw execution items in DynamoDB")
+            
             result = []
             for item in items:
-                item['created_at'] = datetime.fromisoformat(item['created_at'])
-                item['updated_at'] = datetime.fromisoformat(item['updated_at'])
-                result.append(ExecutionRecord(**item))
+                try:
+                    item['created_at'] = datetime.fromisoformat(item['created_at'])
+                    item['updated_at'] = datetime.fromisoformat(item['updated_at'])
+                    result.append(ExecutionRecord(**item))
+                except Exception as loop_err:
+                    logger.error(f"Error processing item {item.get('execution_id')}: {loop_err}")
+                    continue # Skip bad items instead of failing the whole list
+                    
             # Sort by created_at descending (newest first)
             result.sort(key=lambda x: x.created_at, reverse=True)
             return result
         except Exception as e:
-            logger.error(f"Error retrieving all executions: {e}")
+            logger.error(f"Error retrieving all executions for {user_id}: {e}")
             return []
 
     def get_approval_by_execution(self, execution_id: str):
-        """Retrieves an approval record for a specific execution using the ExecutionIdIndex."""
+        """Retrieves an approval record for a specific execution."""
         from bff.db.dynamodb import get_table
         approval_table = get_table('ApprovalRecords')
         try:
+            # The GSI is named ExecutionIndex in AWS
             response = approval_table.query(
-                IndexName="ExecutionIdIndex",
+                IndexName="ExecutionIndex",
                 KeyConditionExpression="execution_id = :eid",
                 ExpressionAttributeValues={":eid": execution_id}
             )

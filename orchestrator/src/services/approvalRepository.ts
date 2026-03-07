@@ -29,6 +29,7 @@ export type ApprovalStatus = "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
 export interface ApprovalRecord {
     approval_id: string;
     execution_id: string;
+    user_id: string;
     version: number;
     status: ApprovalStatus;
     risk: string;
@@ -43,6 +44,7 @@ export interface ApprovalRecord {
  */
 export async function createApprovalRecord(
     executionId: string,
+    userId: string,
     version: number,
     risk: string
 ): Promise<string> {
@@ -53,11 +55,12 @@ export async function createApprovalRecord(
     const item: ApprovalRecord = {
         approval_id: approvalId,
         execution_id: executionId,
+        user_id: userId,
         version,
         status: "PENDING",
         risk,
-        created_at: now,
-        expires_at: expiresAt,
+        created_at: Math.floor(now / 1000),
+        expires_at: Math.floor((now + APPROVAL_TTL_MS) / 1000),
     };
 
     try {

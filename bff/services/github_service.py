@@ -124,7 +124,10 @@ class GitHubOAuthService:
                 'redirect_uri': self.redirect_uri
             }
             
-            headers = {'Accept': 'application/json'}
+            headers = {
+                'Accept': 'application/json',
+                'User-Agent': 'NexusOPS-BFF'
+            }
             
             response = requests.post(self.token_url, json=payload, headers=headers, timeout=10)
             
@@ -143,6 +146,28 @@ class GitHubOAuthService:
         
         except requests.RequestException as e:
             logger.error(f"Network error during token exchange: {str(e)}")
+            raise
+
+    def get_user_profile(self, access_token: str) -> Dict[str, Any]:
+        """
+        Fetch GitHub user profile using access token.
+        """
+        try:
+            headers = {
+                'Authorization': f'Bearer {access_token}',
+                'Accept': 'application/json',
+                'User-Agent': 'NexusOPS-BFF'
+            }
+            
+            response = requests.get(f"{self.api_base}/user", headers=headers, timeout=10)
+            
+            if response.status_code != 200:
+                logger.error(f"GitHub profile fetch failed: {response.status_code} - {response.text}")
+                raise ValueError(f"GitHub profile fetch failed: {response.status_code}")
+                
+            return response.json()
+        except requests.RequestException as e:
+            logger.error(f"Network error during profile fetch: {str(e)}")
             raise
     
     def validate_repository_access(self, access_token: str, repo_url: str) -> Tuple[bool, Dict[str, Any]]:
@@ -252,12 +277,9 @@ class GitHubTokenStore:
     
     def __init__(self):
         """Initialize DynamoDB client."""
-        self.dynamodb = boto3.resource(
-            'dynamodb',
-            region_name=config.AWS_REGION,
-            endpoint_url=config.DYNAMODB_ENDPOINT if config.DYNAMODB_ENDPOINT else None
-        )
-        self.table_name = 'GitHubTokens'
+        from bff.db.dynamodb import get_dynamodb_resource
+        self.dynamodb = get_dynamodb_resource()
+        self.table_name = config.DYNAMODB_TABLE_GITHUB_TOKENS
         self.table = self.dynamodb.Table(self.table_name)
         self.encryption_service = TokenEncryptionService()
     
@@ -515,59 +537,62 @@ class GitHubIntegrationService:
                         "html_url": "https://github.com/squadslayer/terraform-aws-modules",
                         "private": False,
                         "permissions": {"pull": True, "push": False, "admin": False}
-                    },
-                    {
-                        "id": 54321,
-                        "name": "cloud-governance-policies",
-                        "full_name": "squadslayer/cloud-governance-policies",
-                        "html_url": "https://github.com/squadslayer/cloud-governance-policies",
-                        "private": True,
-                        "permissions": {"pull": True, "push": True, "admin": True}
                     }
                 ]
 
-            logger.info(f"[DEBUG] Fetching available repos for user_id: {user_id}")
-            # Try to get any stored token for this user from DynamoDB via Repo
+            logger.info(f"--- Fetching Available Repos for User: {user_id} ---")
+            
+            # Step 1: Get Token from DB
             token_obj = self.token_repo.get_any_token_for_user(user_id)
-
             if not token_obj:
-                logger.info(f"[DEBUG] No stored GitHub token found for user {user_id} — returning empty repo list")
+                logger.warning(f"No stored GitHub token found in DynamoDB for user {user_id}")
                 return []
 
-            logger.info(f"[DEBUG] Found token for user {user_id} with repo_id {token_obj.repo_id}")
+            logger.info(f"Found stored token tied to repo_id: {token_obj.repo_id}")
 
-            # Decrypt token using the store's service
+            # Step 2: Decrypt Token
             try:
                 access_token = self.token_store.encryption_service.decrypt_token(token_obj.access_token_encrypted)
+                if not access_token:
+                    raise ValueError("Decrypted token is empty")
             except Exception as e:
-                logger.error(f"[DEBUG] Token decryption failed for user {user_id}: {str(e)}")
+                logger.error(f"Token decryption failed for user {user_id}: {str(e)}")
                 return []
 
-            # Call GitHub API to list user repos
+            # Step 3: Call GitHub API
             headers = {
                 'Authorization': f'Bearer {access_token}',
                 'Accept': 'application/vnd.github.v3+json',
-                'User-Agent': 'NexusOps-BFF'
+                'User-Agent': 'NexusOPS-BFF'
             }
 
-            logger.info(f"[DEBUG] Calling GitHub API /user/repos for user {user_id}")
+            logger.info(f"Calling GitHub /user/repos for user {user_id}...")
             response = requests.get(
                 f"{self.oauth_service.api_base}/user/repos",
                 headers=headers,
-                params={"per_page": 100, "sort": "updated"},
+                params={
+                    "per_page": 100, 
+                    "sort": "updated"
+                },
                 timeout=15
             )
 
+            logger.info(f"GitHub API Response: {response.status_code}")
+            
             if response.status_code == 200:
                 repos = response.json()
-                logger.info(f"[DEBUG] Successfully fetched {len(repos)} repos from GitHub for user {user_id}")
+                logger.info(f"Successfully fetched {len(repos)} repositories from GitHub.")
+                # Log repository names for debugging
+                if repos:
+                    repo_names = [r.get('full_name') for r in repos[:10]]
+                    logger.info(f"Fetched Repos (first 10): {repo_names}")
                 return repos
             else:
-                logger.warning(f"[DEBUG] GitHub API returned status {response.status_code} for user {user_id}. Body: {response.text[:200]}")
+                logger.error(f"GitHub API error {response.status_code}: {response.text}")
                 return []
 
         except Exception as e:
-            logger.error(f"[DEBUG] Critical error in get_user_repos for user {user_id}: {str(e)}")
+            logger.error(f"Critical error in get_user_repos: {str(e)}", exc_info=True)
             return []
 
     def store_session_token(self, user_id: str, access_token: str):

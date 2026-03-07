@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { apiFetch } from "@/lib/api";
@@ -32,7 +32,7 @@ type ChatMessage = {
 
 // ─── Chat Panel Component ─────────────────────────────────────────────────────
 
-function ChatPanel({ isOpen, onClose, repos }: { isOpen: boolean; onClose: () => void; repos: Repo[] }) {
+function ChatPanel({ isOpen, onClose, repos, onExecutionStarted }: { isOpen: boolean; onClose: () => void; repos: Repo[]; onExecutionStarted?: () => void }) {
     const [messages, setMessages] = useState<ChatMessage[]>([
         {
             id: "welcome",
@@ -50,7 +50,7 @@ function ChatPanel({ isOpen, onClose, repos }: { isOpen: boolean; onClose: () =>
     }, [messages]);
 
     const handleSend = async () => {
-        if (!input.trim()) return;
+        if (!input.trim() || !repos.length) return;
 
         const userMsg: ChatMessage = {
             id: Date.now().toString(),
@@ -62,22 +62,57 @@ function ChatPanel({ isOpen, onClose, repos }: { isOpen: boolean; onClose: () =>
         setInput("");
         setIsTyping(true);
 
-        // Simulate assistant response (in production, this would call the orchestrator)
-        setTimeout(() => {
-            const repoNames = repos.map((r) => r.full_name).join(", ");
-            const responses: Record<string, string> = {
-                default: `I'm processing your query across ${repos.length} connected repositories (${repoNames}). In production, this would trigger the NexusOPS orchestrator's Ask → Retrieve → Reason → Act → Verify loop.\n\nFor now, the ingestion pipeline is being set up. Once complete, I'll be able to analyze your IaC configurations, detect policy violations, and suggest remediations.`,
-            };
+        try {
+            // CALL REAL BFF EXECUTION
+            const repo = repos[0]; // For now, use the first repo if multiple exist
+            const res = await apiFetch('/executions/start', {
+                method: 'POST',
+                body: JSON.stringify({
+                    repo_id: repo.id,
+                    repository_url: repo.html_url,
+                    input: {
+                        prompt: userMsg.content,
+                        query: userMsg.content
+                    }
+                })
+            });
 
-            const assistantMsg: ChatMessage = {
+            if (res.ok) {
+                const data = await res.json();
+                console.log("EXECUTION START RESPONSE:", data);
+
+                // Deep extraction for the ID
+                const execId = data.data?.execution_id || data.meta?.execution_id || data.execution_id || data.data?.id || "not-found";
+
+                // Debug alert to help identify the structure
+                if (execId === "not-found") {
+                    alert("DEBUG: Response structure unexpected. Body: " + JSON.stringify(data));
+                }
+
+                const assistantMsg: ChatMessage = {
+                    id: (Date.now() + 1).toString(),
+                    role: "assistant",
+                    content: `Success! Execution \`${execId}\` started.\n\nNexusOPS is now triggering the Ask → Retrieve → Reason → Act loop. The ingestion pipeline will clone and analyze your repository (\`${repo.name}\`) just-in-time.\n\nYou can track the progress in the "Recent Executions" section! 🥂`,
+                    timestamp: new Date(),
+                };
+                setMessages((prev) => [...prev, assistantMsg]);
+
+                // TRIGGER REFRESH
+                if (onExecutionStarted) onExecutionStarted();
+            } else {
+                const errorData = await res.json().catch(() => ({}));
+                throw new Error(errorData.error || "Failed to start execution");
+            }
+        } catch (err: any) {
+            setMessages((prev) => [...prev, {
                 id: (Date.now() + 1).toString(),
                 role: "assistant",
-                content: responses.default,
+                content: `Error: ${err.message || "Something went wrong"}. Please ensure your Lambda is reachable.`,
                 timestamp: new Date(),
-            };
-            setMessages((prev) => [...prev, assistantMsg]);
+            }]);
+        } finally {
             setIsTyping(false);
-        }, 1500);
+        }
     };
 
     if (!isOpen) return null;
@@ -164,37 +199,35 @@ export default function DashboardPage() {
     const [recentExecutions, setRecentExecutions] = useState<any[]>([]);
     const [statsLoading, setStatsLoading] = useState(true);
 
-    useEffect(() => {
-        async function fetchData() {
-            try {
-                const headers = { 'Authorization': `Bearer ${localStorage.getItem('nexusops_token') || ''}` };
+    const refreshData = useCallback(async () => {
+        try {
+            const [statsRes, execsRes] = await Promise.all([
+                apiFetch('/dashboard/stats'),
+                apiFetch('/executions')
+            ]);
 
-                const [statsRes, execsRes] = await Promise.all([
-                    fetch('http://localhost:8000/dashboard/stats', { headers }),
-                    fetch('http://localhost:8000/executions', { headers })
-                ]);
-
-                if (statsRes.ok) {
-                    const json = await statsRes.json();
-                    setStats(json.data);
-                }
-
-                if (execsRes.ok) {
-                    const json = await execsRes.json();
-                    // Sort descending by created_at and take top 5
-                    const sorted = (json.data || []).sort((a: any, b: any) =>
-                        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-                    );
-                    setRecentExecutions(sorted.slice(0, 5));
-                }
-            } catch (err) {
-                console.error("Failed to load dashboard data", err);
-            } finally {
-                setStatsLoading(false);
+            if (statsRes.ok) {
+                const json = await statsRes.json();
+                setStats(json.data);
             }
+
+            if (execsRes.ok) {
+                const json = await execsRes.json();
+                const sorted = (json.data || []).sort((a: any, b: any) =>
+                    new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+                );
+                setRecentExecutions(sorted.slice(0, 5));
+            }
+        } catch (err) {
+            console.error("Failed to load dashboard data", err);
+        } finally {
+            setStatsLoading(false);
         }
-        fetchData();
     }, []);
+
+    useEffect(() => {
+        refreshData();
+    }, [refreshData]);
 
     const handleExport = () => {
         if (repos.length === 0) {
@@ -443,7 +476,12 @@ export default function DashboardPage() {
             )}
 
             {/* Chat Panel */}
-            <ChatPanel isOpen={isChatOpen} onClose={() => setIsChatOpen(false)} repos={repos} />
+            <ChatPanel
+                isOpen={isChatOpen}
+                onClose={() => setIsChatOpen(false)}
+                repos={repos}
+                onExecutionStarted={refreshData}
+            />
         </>
     );
 }

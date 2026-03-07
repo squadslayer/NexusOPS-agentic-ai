@@ -35,11 +35,20 @@ export async function ingestRepository(repoUrl: string, repoId: string, userId: 
         }));
 
         if (tokenResponse.Items && tokenResponse.Items.length > 0) {
-            token = tokenResponse.Items[0].access_token;
-            console.log(`[INGESTION] Retrieved OAuth token for user ${userId}.`);
+            const encryptedToken = tokenResponse.Items[0].access_token_encrypted;
+            const encryptionKey = process.env.ENCRYPTION_KEY;
+
+            if (encryptedToken && encryptionKey) {
+                const { decryptToken } = await import("../utils/encryption");
+                token = decryptToken(encryptedToken, encryptionKey);
+                console.log(`[INGESTION] Successfully decrypted OAuth token for user ${userId}.`);
+            } else {
+                console.warn(`[INGESTION] Missing encryptedToken or ENCRYPTION_KEY. Falling back.`);
+                token = tokenResponse.Items[0].access_token; // Legacy / Fallback
+            }
         }
     } catch (tokenErr) {
-        console.warn(`[INGESTION] Could not fetch user token, falling back to environment PAT.`, tokenErr);
+        console.warn(`[INGESTION] Could not fetch/decrypt user token, falling back to environment PAT.`, tokenErr);
         token = process.env.GITHUB_API_TOKEN;
     }
 

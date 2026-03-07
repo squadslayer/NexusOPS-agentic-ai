@@ -36,7 +36,8 @@ export default function LoginPage() {
     }, [searchParams, router]);
 
     const handleGitHubLogin = () => {
-        window.location.href = "http://localhost:8000/auth/github";
+        const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || "http://localhost:8000";
+        window.location.href = `${bffUrl}/auth/github`;
     };
 
     return (

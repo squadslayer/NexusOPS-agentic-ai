@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { formatDistanceToNow } from 'date-fns';
 import { CheckCircleIcon, XCircleIcon } from '@heroicons/react/24/outline';
+import { apiFetch } from "@/lib/api";
 
 interface ApprovalRecord {
     approval_id: string;
@@ -26,14 +27,10 @@ export default function ExecutionDetail({ executionId }: ExecutionDetailProps) {
 
     const fetchDetails = async () => {
         try {
-            const headers = {
-                'Authorization': `Bearer ${localStorage.getItem('nexusops_token') || ''}`
-            };
-
             const [execRes, logsRes, approvalRes] = await Promise.all([
-                fetch(`http://localhost:8000/executions/${executionId}`, { headers }),
-                fetch(`http://localhost:8000/executions/${executionId}/logs`, { headers }),
-                fetch(`http://localhost:8000/executions/${executionId}/approval`, { headers })
+                apiFetch(`/executions/${executionId}`),
+                apiFetch(`/executions/${executionId}/logs`),
+                apiFetch(`/executions/${executionId}/approval`)
             ]);
 
             if (!execRes.ok) throw new Error('Failed to fetch execution details');
@@ -52,24 +49,8 @@ export default function ExecutionDetail({ executionId }: ExecutionDetailProps) {
             }
         } catch (err: any) {
             console.error(err);
-            setError('Failed to load execution details. It may not exist or the backend is unreachable.');
-
-            // Fallback mock data for styling purposes
-            setExecution({
-                execution_id: executionId,
-                repo_id: 'mock/repo',
-                status: 'APPROVAL_PENDING',
-                prompt: 'Update dependencies to latest versions',
-                created_at: new Date().toISOString()
-            });
-            setApproval({
-                approval_id: 'app-mock-123',
-                execution_id: executionId,
-                status: 'PENDING',
-                risk: 'HIGH',
-                expires_at: Math.floor(Date.now() / 1000) + 900
-            });
-            setLogs([{ message: 'Execution started', timestamp: new Date().toISOString() }]);
+            const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8000';
+            setError(`Failed to load execution details. Checked: ${bffUrl}/executions/${executionId}`);
         } finally {
             setLoading(false);
         }
@@ -81,7 +62,7 @@ export default function ExecutionDetail({ executionId }: ExecutionDetailProps) {
         // Poll for updates if it's running or pending approval
         const interval = setInterval(() => {
             fetchDetails();
-        }, 5000);
+        }, 8000);
 
         return () => clearInterval(interval);
     }, [executionId]);
@@ -89,20 +70,20 @@ export default function ExecutionDetail({ executionId }: ExecutionDetailProps) {
     const handleApproval = async (decision: 'approve' | 'reject') => {
         setActionLoading(true);
         try {
-            const res = await fetch(`http://localhost:8000/executions/${executionId}/${decision}`, {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('nexusops_token') || ''}`
-                }
+            const res = await apiFetch(`/executions/${executionId}/${decision}`, {
+                method: 'POST'
             });
 
-            if (!res.ok) throw new Error(`Failed to ${decision} execution`);
+            if (!res.ok) {
+                const errJson = await res.json().catch(() => ({}));
+                throw new Error(errJson.error || `Failed to ${decision} execution`);
+            }
 
             // Refresh state
             await fetchDetails();
-        } catch (err) {
+        } catch (err: any) {
             console.error(err);
-            alert(`Error submitting decision. Back-end returned error.`);
+            alert(`Error: ${err.message || 'Something went wrong processing your decision.'}`);
         } finally {
             setActionLoading(false);
         }
@@ -136,9 +117,9 @@ export default function ExecutionDetail({ executionId }: ExecutionDetailProps) {
                     </div>
                     <div className="text-right">
                         <span className={`inline-block px-3 py-1 rounded-full text-xs font-bold font-mono tracking-widest ${execution.status === 'COMPLETED' ? 'bg-green-900/50 text-green-400 border border-green-800' :
-                                execution.status === 'FAILED' ? 'bg-red-900/50 text-red-400 border border-red-800' :
-                                    execution.status === 'APPROVAL_PENDING' ? 'bg-amber-900/50 text-amber-400 border border-amber-800 animate-pulse' :
-                                        'bg-[#1a1d24] text-gray-300 border border-[#2A2E35]'
+                            execution.status === 'FAILED' ? 'bg-red-900/50 text-red-400 border border-red-800' :
+                                execution.status === 'APPROVAL_PENDING' ? 'bg-amber-900/50 text-amber-400 border border-amber-800 animate-pulse' :
+                                    'bg-[#1a1d24] text-gray-300 border border-[#2A2E35]'
                             }`}>
                             {execution.status}
                         </span>

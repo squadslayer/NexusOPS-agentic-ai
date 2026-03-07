@@ -56,6 +56,7 @@ async function createNewApproval(
 
     const approvalId = await createApprovalRecord(
         execution.execution_id,
+        execution.user_id,
         execution.version,
         risk
     );

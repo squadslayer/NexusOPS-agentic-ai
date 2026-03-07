@@ -31,17 +31,37 @@ export async function loginUser(credentials: LoginCredentials) {
 }
 
 export async function apiFetch(url: string, options: any = {}) {
-    const token = typeof window !== 'undefined' ? localStorage.getItem("token") : null;
+    const token = typeof window !== 'undefined'
+        ? (localStorage.getItem("token") || localStorage.getItem("nexusops_token"))
+        : null;
 
     const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8000';
     const fullUrl = url.startsWith('http') ? url : `${bffUrl}${url.startsWith('/') ? '' : '/'}${url}`;
 
-    return fetch(fullUrl, {
-        ...options,
-        headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            ...(options.headers || {})
-        }
+    console.log(`[apiFetch] Requesting: ${fullUrl}`, {
+        method: options.method || 'GET',
+        hasToken: !!token,
+        tokenPrefix: token ? `${token.substring(0, 5)}...` : 'none'
     });
+
+    try {
+        const response = await fetch(fullUrl, {
+            ...options,
+            headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {}),
+                ...(options.headers || {})
+            }
+        });
+
+        console.log(`[apiFetch] Response: ${fullUrl} | Status: ${response.status} ${response.statusText}`);
+        return response;
+    } catch (err: any) {
+        console.error(`[apiFetch] CRITICAL ERROR for ${fullUrl}:`, err);
+        // Special log for CORS/Network failures
+        if (err instanceof TypeError && err.message === 'Failed to fetch') {
+            console.error(`[apiFetch] Possible CORS block or Backend Offline! Check that ${bffUrl} is reachable.`);
+        }
+        throw err;
+    }
 }

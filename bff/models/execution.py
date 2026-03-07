@@ -8,6 +8,7 @@ class ExecutionStatus(str, Enum):
     RUNNING = "RUNNING"
     COMPLETED = "COMPLETED"
     FAILED = "FAILED"
+    APPROVAL_PENDING = "APPROVAL_PENDING"
 
 class ExecutionRecord(BaseModel):
     user_id: str

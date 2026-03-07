@@ -56,7 +56,7 @@ export async function handleApprovalDecision(
         const record = await updateApprovalDecision(approval_id, decision);
 
         // 2. Get execution record
-        const execution = await repository.getExecution(record.execution_id);
+        const execution = await repository.getExecution(record.user_id, record.execution_id);
 
         // 3. Validate execution is in APPROVAL_PENDING
         if (execution.stage !== Stage.APPROVAL_PENDING) {
@@ -84,6 +84,7 @@ export async function handleApprovalDecision(
 
         // 6. Update execution with optimistic locking
         const updated = await repository.updateExecutionConditional(
+            execution.user_id,
             execution.execution_id,
             execution.version,
             {

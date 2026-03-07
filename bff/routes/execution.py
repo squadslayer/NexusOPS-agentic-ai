@@ -63,7 +63,12 @@ async def start_execution(request: Request, user_id: str = Depends(require_auth_
         status=ExecutionStatus.PENDING,
         prompt=user_input.get("prompt", "")
     )
-    exec_repo.create_execution(record)
+    if not exec_repo.create_execution(record):
+        return create_error_response_fastapi(
+            error_message="Failed to initialize execution record in database.",
+            error_code="DB_ERROR",
+            execution_id=execution_id
+        )
     logger.info(f"Persistent execution record created: {execution_id}")
 
     # Step 4: Invoke the Orchestrator
@@ -71,6 +76,7 @@ async def start_execution(request: Request, user_id: str = Depends(require_auth_
         envelope = invoke_orchestrator(
             user_id=user_id,
             repo_id=repo_id,
+            execution_id=execution_id,
             user_input=user_input,
         )
     except Exception as e:
@@ -78,12 +84,15 @@ async def start_execution(request: Request, user_id: str = Depends(require_auth_
         exec_repo.update_execution_status(user_id, execution_id, ExecutionStatus.FAILED, {"error": str(e)})
         raise HTTPException(status_code=502, detail="Orchestrator invocation failed")
 
+    response_data = {
+        "execution_id": execution_id,
+        "status": ExecutionStatus.PENDING,
+        "message": "Analysis started successfully"
+    }
+    logger.info(f"Returning success for execution {execution_id}: {response_data}")
+    
     return create_success_response_fastapi(
-        data={
-            "execution_id": execution_id,
-            "status": ExecutionStatus.PENDING,
-            "message": "Analysis started successfully"
-        },
+        data=response_data,
         execution_id=execution_id,
         stage="ASK"
     )

@@ -55,7 +55,7 @@ export function useGitHubUser(): UseGitHubUserReturn {
         localStorage.removeItem("token");
         setUser(null);
         // Redirect to landing page after logout
-        window.location.href = "http://localhost:4000";
+        window.location.href = "http://localhost:3001";
     }, []);
 
     return {

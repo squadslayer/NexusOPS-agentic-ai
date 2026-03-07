@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import ExecutionList from '@/components/executions/ExecutionList';
+import { apiFetch } from "@/lib/api";
 
 interface Execution {
   execution_id: string;
@@ -18,11 +19,7 @@ export default function ExecutionsPage() {
   useEffect(() => {
     async function fetchExecutions() {
       try {
-        const res = await fetch('http://localhost:8000/executions', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('nexusops_token') || ''}`
-          }
-        });
+        const res = await apiFetch('/executions');
 
         if (!res.ok) {
           throw new Error('Failed to fetch executions');
@@ -32,23 +29,8 @@ export default function ExecutionsPage() {
         setExecutions(json.data || []);
       } catch (err: any) {
         console.error('Failed to load executions', err);
-        setError('Could not load executions. Please make sure the BFF backend is running locally.');
-
-        // Mock data fallback
-        setExecutions([
-          {
-            execution_id: 'exec-8b4e1012-mock',
-            repo_id: 'sample-org/demo-repo',
-            status: 'APPROVAL_PENDING',
-            created_at: new Date(Date.now() - 600000).toISOString()
-          },
-          {
-            execution_id: 'exec-a1b2c3d4-mock',
-            repo_id: 'sample-org/demo-repo',
-            status: 'COMPLETED',
-            created_at: new Date(Date.now() - 86400000).toISOString()
-          }
-        ]);
+        const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8000';
+        setError(`Fetch failed: ${err.message}. (URL: ${bffUrl}/executions).`);
       } finally {
         setLoading(false);
       }

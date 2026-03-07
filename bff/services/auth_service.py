@@ -18,12 +18,9 @@ class DynamoDBUserStore:
     
     def __init__(self):
         """Initialize DynamoDB client."""
-        self.dynamodb = boto3.resource(
-            'dynamodb',
-            region_name=config.AWS_REGION,
-            endpoint_url=config.DYNAMODB_ENDPOINT if config.DYNAMODB_ENDPOINT else None
-        )
-        self.table_name = 'Users'
+        from bff.db.dynamodb import get_dynamodb_resource
+        self.dynamodb = get_dynamodb_resource()
+        self.table_name = config.DYNAMODB_TABLE_USERS
         self.table = self.dynamodb.Table(self.table_name)
     
     def get_user_by_id(self, user_id: str) -> Optional[Dict[str, Any]]:

@@ -119,3 +119,30 @@ Thumbs.db
 .vscode/
 .vscode-test
 .tern-port
+
+# =========================
+# Deployment Artifacts
+# =========================
+*.zip
+dist_bff/
+dist_orchestrator/
+exclude.txt
+
+# =========================
+# Temporary Development Scripts
+# =========================
+check_approval_status.py
+check_ingest.py
+check_sts_identity.py
+create_gsis.py
+describe_table_schema.py
+list_repos.py
+mock_repo_connection.py
+setup_db.py
+test_concurrency.py
+test_lambda_boot.py
+trigger_multi_user.py
+verify_bff_response.py
+verify_gsis.py
+verify_repo_flow.py
+verify_security.py
