@@ -37,7 +37,7 @@ export function Navbar() {
                 <Link href="/" className="flex items-center gap-2" aria-label="NexusOPS Home">
                     <Command className="w-5 h-5 text-primary" />
                     <span className="text-text-primary font-bold tracking-tight">
-                        NexusOPS
+                        NexusOps
                     </span>
                 </Link>
 

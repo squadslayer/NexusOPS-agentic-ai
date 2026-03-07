@@ -89,7 +89,7 @@ export function Navigation() {
             <div className="h-14 flex items-center gap-2 px-4 border-b border-border shrink-0">
                 <ShieldCheckIcon className="h-5 w-5 text-primary" aria-hidden />
                 <span className="text-base font-semibold tracking-tight text-textMain">
-                    Nexus<span className="text-primary">OPS</span>
+                    Nexus<span className="text-primary">Ops</span>
                 </span>
             </div>
 

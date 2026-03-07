@@ -3,8 +3,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
     title: {
-        template: "%s | NexusOPS",
-        default: "NexusOPS — Agentic Cloud Governance",
+        template: "%s | NexusOps",
+        default: "NexusOps — Agentic Cloud Governance",
     },
     description: "Enterprise cloud governance and resource management control plane.",
 };

@@ -9,7 +9,7 @@ export function Footer() {
                 <div className="col-span-12 md:col-span-4">
                     <div className="flex items-center gap-2 mb-4">
                         <Command className="w-5 h-5 text-primary" />
-                        <span className="text-text-primary font-bold">NexusOPS</span>
+                        <span className="text-text-primary font-bold">NexusOps</span>
                     </div>
                     <p className="max-w-xs mb-6">
                         Enterprise infrastructure management platform for accelerating development velocity safely.

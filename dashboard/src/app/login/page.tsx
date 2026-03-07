@@ -50,7 +50,7 @@ function LoginContent() {
                         <ShieldCheckIcon className="h-9 w-9 text-primary" aria-hidden />
                     </div>
                     <h1 className="text-xl font-semibold tracking-tight text-textMain">
-                        Nexus<span className="text-primary">OPS</span>
+                        Nexus<span className="text-primary">Ops</span>
                     </h1>
                     <p className="text-xs text-textMuted">
                         Sign in with GitHub to access the governance dashboard
