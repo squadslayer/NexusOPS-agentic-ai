@@ -23,7 +23,7 @@ export function Footer() {
                         <li><Link href="/architecture" className="hover:text-text-primary transition-colors">Architecture</Link></li>
                         <li><Link href="/features" className="hover:text-text-primary transition-colors">Features</Link></li>
                         <li><Link href="/security" className="hover:text-text-primary transition-colors">Security</Link></li>
-                        <li><a href="http://localhost:3000/dashboard" className="hover:text-text-primary transition-colors">Open Dashboard</a></li>
+                        <li><Link href={process.env.NEXT_PUBLIC_DASHBOARD_URL || "http://localhost:3000/dashboard"} className="hover:text-text-primary transition-colors">Open Dashboard</Link></li>
                     </ul>
                 </div>
 
