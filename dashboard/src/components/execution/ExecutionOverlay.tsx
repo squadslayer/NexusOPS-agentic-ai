@@ -1,5 +1,6 @@
 "use client";
 
+import { Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { useExecutionStream } from "@/hooks/useExecutionStream";
 import {
@@ -21,7 +22,7 @@ const STAGES = [
     { id: "VERIFY", label: "Verify", icon: ShieldCheckIcon },
 ];
 
-export function ExecutionOverlay() {
+function InternalExecutionOverlay() {
     const searchParams = useSearchParams();
     const executionId = searchParams.get("executionId");
 
@@ -121,5 +122,13 @@ export function ExecutionOverlay() {
                 </div>
             )}
         </div>
+    );
+}
+
+export function ExecutionOverlay() {
+    return (
+        <Suspense fallback={null}>
+            <InternalExecutionOverlay />
+        </Suspense>
     );
 }

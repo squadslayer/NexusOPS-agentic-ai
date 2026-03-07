@@ -1,21 +1,17 @@
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useGitHubUser } from "@/hooks/useGitHubUser";
 import { ShieldCheckIcon } from "@heroicons/react/24/outline";
 
 /**
- * AuthGuard — wraps any page that requires authentication.
- * - Picks up ?token= from GitHub OAuth redirect and saves it to localStorage.
- * - If no valid token found, redirects to /login.
+ * TokenHandler — small sub-component to safely use useSearchParams.
+ * This needs to be wrapped in <Suspense> during SSR/Static Generation.
  */
-export function AuthGuard({ children }: { children: React.ReactNode }) {
-    const { isAuthenticated, isLoading } = useGitHubUser();
-    const router = useRouter();
+function TokenHandler() {
     const searchParams = useSearchParams();
 
-    // Pick up GitHub OAuth redirect token (?token=<jwt>)
     useEffect(() => {
         const token = searchParams.get("token");
         if (token) {
@@ -28,6 +24,18 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
             window.location.reload();
         }
     }, [searchParams]);
+
+    return null;
+}
+
+/**
+ * AuthGuard — wraps any page that requires authentication.
+ * - Picks up ?token= from GitHub OAuth redirect and saves it to localStorage.
+ * - If no valid token found, redirects to /login.
+ */
+export function AuthGuard({ children }: { children: React.ReactNode }) {
+    const { isAuthenticated, isLoading } = useGitHubUser();
+    const router = useRouter();
 
     useEffect(() => {
         if (!isLoading && !isAuthenticated) {
@@ -50,5 +58,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         return null;
     }
 
-    return <>{children}</>;
+    return (
+        <>
+            <Suspense fallback={null}>
+                <TokenHandler />
+            </Suspense>
+            {children}
+        </>
+    );
 }
