@@ -77,6 +77,8 @@ export function Navigation() {
         return () => clearInterval(interval);
     }, []);
 
+    const landingUrl = process.env.NEXT_PUBLIC_LANDING_URL || "/";
+
     return (
         <aside
             className="
@@ -85,13 +87,16 @@ export function Navigation() {
         overflow-y-auto
       "
         >
-            {/* Brand */}
-            <div className="h-14 flex items-center gap-2 px-4 border-b border-border shrink-0">
+            {/* Brand - Clickable to Landing Page */}
+            <Link
+                href={landingUrl}
+                className="h-14 flex items-center gap-2 px-4 border-b border-border shrink-0 hover:bg-surfaceHover transition-colors"
+            >
                 <ShieldCheckIcon className="h-5 w-5 text-primary" aria-hidden />
                 <span className="text-base font-semibold tracking-tight text-textMain">
                     Nexus<span className="text-primary">Ops</span>
                 </span>
-            </div>
+            </Link>
 
             {/* Nav Groups */}
             <nav className="flex-1 py-4 px-2 space-y-6">
@@ -100,16 +105,19 @@ export function Navigation() {
                         <p className="section-label px-2 mb-1">{group.heading}</p>
                         <ul className="space-y-0.5">
                             {group.items.map((item) => {
-                                const isActive =
+                                const isHome = item.label === "Home";
+                                const isActive = !isHome && (
                                     item.href === "/"
                                         ? pathname === "/"
-                                        : pathname.startsWith(item.href);
+                                        : pathname.startsWith(item.href)
+                                );
                                 const Icon = item.icon;
+                                const targetHref = isHome ? landingUrl : item.href;
 
                                 return (
                                     <li key={item.href}>
                                         <Link
-                                            href={item.href}
+                                            href={targetHref}
                                             className={`
                         flex items-center gap-3 px-2 py-2 rounded text-sm font-medium
                         transition-colors duration-100
