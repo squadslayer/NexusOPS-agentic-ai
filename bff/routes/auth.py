@@ -289,11 +289,11 @@ async def github_callback(code: str = None, error: str = None):
     Handles the GitHub OAuth callback, exchanges code for token,
     fetches user profile, issues a JWT, and redirects to the dashboard.
     """
-    dashboard_url = "http://localhost:3000/dashboard"
+    dashboard_url = f"{config.FRONTEND_URL}/dashboard"
 
     if error or not code:
         logger.error(f"GitHub OAuth error callback: error={error}, code={code}")
-        return RedirectResponse(url=f"http://localhost:3000/login?error=github_denied")
+        return RedirectResponse(url=f"{config.FRONTEND_URL}/login?error=github_denied")
 
     try:
         # Step 1: Exchange code for GitHub access token
@@ -304,7 +304,7 @@ async def github_callback(code: str = None, error: str = None):
                 raise ValueError("No access_token in OAuth response")
         except Exception as e:
             logger.error(f"Step 1 (Token Exchange) failed: {e}")
-            return RedirectResponse(url=f"http://localhost:3000/login?error=token_failed")
+            return RedirectResponse(url=f"{config.FRONTEND_URL}/login?error=token_failed")
         
         # Step 2: Fetch GitHub user profile
         try:
@@ -312,7 +312,7 @@ async def github_callback(code: str = None, error: str = None):
             gh_user = github_service.oauth_service.get_user_profile(access_token)
         except Exception as e:
             logger.error(f"Step 2 (Profile Fetch) failed: {e}")
-            return RedirectResponse(url=f"http://localhost:3000/login?error=profile_failed")
+            return RedirectResponse(url=f"{config.FRONTEND_URL}/login?error=profile_failed")
 
         user_id = str(gh_user.get("id", "unknown"))
         login = gh_user.get("login", "user")
@@ -336,18 +336,18 @@ async def github_callback(code: str = None, error: str = None):
             token = pyjwt.encode(payload, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
         except Exception as e:
             logger.error(f"Step 3 (JWT Issuance) failed: {e}")
-            return RedirectResponse(url=f"http://localhost:3000/login?error=jwt_failed")
+            return RedirectResponse(url=f"{config.FRONTEND_URL}/login?error=jwt_failed")
 
         # Step 4: Store the GitHub access token in memory/DB
         try:
             github_service.store_session_token(user_id, access_token)
         except Exception as e:
             logger.error(f"Step 4 (Token Storage) failed: {e}")
-            return RedirectResponse(url=f"http://localhost:3000/login?error=db_failed")
+            return RedirectResponse(url=f"{config.FRONTEND_URL}/login?error=db_failed")
 
         # Step 5: Redirect to dashboard with token
         return RedirectResponse(url=f"{dashboard_url}?token={token}")
 
     except Exception as e:
         logger.error(f"GitHub OAuth global failure: {e}")
-        return RedirectResponse(url=f"http://localhost:3000/login?error=unknown_error")
+        return RedirectResponse(url=f"{config.FRONTEND_URL}/login?error=unknown_error")

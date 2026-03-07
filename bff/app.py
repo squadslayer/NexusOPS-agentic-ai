@@ -32,6 +32,7 @@ def create_app():
             "https://dashboard.nexusops.ai",
             "https://nexusops.ai",
             "https://www.nexusops.ai",
+            config.FRONTEND_URL,
             "http://localhost:3000",
             "http://127.0.0.1:3000"
         ]

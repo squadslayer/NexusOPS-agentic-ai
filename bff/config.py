@@ -83,6 +83,7 @@ GITHUB_API_BASE_URL = "https://api.github.com"
 GITHUB_CLIENT_ID = os.getenv('GITHUB_CLIENT_ID', 'dev-client-id')
 GITHUB_CLIENT_SECRET = os.getenv('GITHUB_CLIENT_SECRET', 'dev-client-secret')
 GITHUB_REDIRECT_URI = os.getenv('GITHUB_REDIRECT_URI', 'http://localhost:8000/auth/github/callback')
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:3000')
 
 # Token Encryption Configuration
 ENCRYPTION_KEY = os.getenv('ENCRYPTION_KEY', 'your-32-byte-encryption-key-change-production')
@@ -129,7 +130,8 @@ if ENV == 'aws':
         'JWT_SECRET': 'your-secret-key-change-in-production',
         'ENCRYPTION_KEY': 'your-32-byte-encryption-key-change-production',
         'GITHUB_CLIENT_SECRET': 'dev-client-secret',
-        'GITHUB_CLIENT_ID': 'dev-client-id'
+        'GITHUB_CLIENT_ID': 'dev-client-id',
+        'FRONTEND_URL': 'http://localhost:3000'
     }
     
     validation_failed = False
