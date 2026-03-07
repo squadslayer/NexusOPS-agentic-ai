@@ -25,14 +25,14 @@ export async function loginUser(credentials: LoginCredentials) {
     // Backwards compatibility for the plan's 'access_token' or the BFF's 'token'
     const token = data.access_token || (data.data && data.data.token) || data.token;
     if (token) {
-        localStorage.setItem("token", token);
+        localStorage.setItem("nexusops_token", token);
     }
     return data;
 }
 
 export async function apiFetch(url: string, options: any = {}) {
     const token = typeof window !== 'undefined'
-        ? (localStorage.getItem("token") || localStorage.getItem("nexusops_token"))
+        ? localStorage.getItem("nexusops_token")
         : null;
 
     const bffUrl = process.env.NEXT_PUBLIC_BFF_URL || 'http://localhost:8000';

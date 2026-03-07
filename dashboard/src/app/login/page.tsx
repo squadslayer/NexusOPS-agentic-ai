@@ -27,7 +27,7 @@ function LoginContent() {
         const token = searchParams.get("token");
         const error = searchParams.get("error");
         if (token) {
-            localStorage.setItem("token", token);
+            localStorage.setItem("nexusops_token", token);
             router.replace("/dashboard");
         }
         if (error) {

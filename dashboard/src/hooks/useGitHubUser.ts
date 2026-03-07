@@ -24,7 +24,7 @@ export function useGitHubUser(): UseGitHubUserReturn {
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchUser = useCallback(async () => {
-        const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
+        const token = typeof window !== "undefined" ? localStorage.getItem("nexusops_token") : null;
         if (!token) {
             setIsLoading(false);
             return;
@@ -37,7 +37,7 @@ export function useGitHubUser(): UseGitHubUserReturn {
                 setUser(data);
             } else {
                 // Token invalid / expired
-                localStorage.removeItem("token");
+                localStorage.removeItem("nexusops_token");
                 setUser(null);
             }
         } catch {
@@ -52,10 +52,11 @@ export function useGitHubUser(): UseGitHubUserReturn {
     }, [fetchUser]);
 
     const logout = useCallback(() => {
-        localStorage.removeItem("token");
+        localStorage.removeItem("nexusops_token");
         setUser(null);
         // Redirect to landing page after logout
-        window.location.href = "http://localhost:3001";
+        const landingUrl = process.env.NEXT_PUBLIC_LANDING_URL || "http://localhost:3001";
+        window.location.href = landingUrl;
     }, []);
 
     return {
