@@ -11,6 +11,7 @@ import { Footer } from '@/components/Footer';
 export default function Home() {
   return (
     <>
+      <Navbar />
       <Hero />
       <Integrations />
       <Workflow />
@@ -18,6 +19,7 @@ export default function Home() {
       <Features />
       <Security />
       <CTA />
+      <Footer />
     </>
   );
 }
