@@ -320,20 +320,10 @@ async def github_callback(code: str = None, error: str = None):
         avatar_url = gh_user.get("avatar_url", "")
         email = gh_user.get("email", f"{login}@github.com")
 
-        # Step 3: Issue a NexusOPS JWT
+        # Step 3: Issue a NexusOPS JWT using standardized utility
         try:
-            payload = {
-                "sub": user_id,
-                "user_id": user_id,
-                "login": login,
-                "name": name,
-                "email": email,
-                "avatar_url": avatar_url,
-                "iss": "nexusops-bff",
-                "iat": int(time.time()),
-                "exp": int(time.time()) + (config.JWT_EXPIRATION_HOURS * 3600),
-            }
-            token = pyjwt.encode(payload, config.JWT_SECRET, algorithm=config.JWT_ALGORITHM)
+            from bff.utils.auth_utils import encode_jwt
+            token = encode_jwt(user_id=user_id, email=email)
         except Exception as e:
             logger.error(f"Step 3 (JWT Issuance) failed: {e}")
             return RedirectResponse(url=f"{config.FRONTEND_URL}/login?error=jwt_failed")

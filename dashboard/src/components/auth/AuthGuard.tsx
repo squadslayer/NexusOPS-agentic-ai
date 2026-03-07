@@ -30,9 +30,9 @@ function AuthGuardContent({ children }: { children: React.ReactNode }) {
             const url = new URL(window.location.href);
             url.searchParams.delete("token");
 
-            // We use router.replace to the clean dashboard URL
-            // This will re-trigger the AuthGuard useEffect but without the token
-            router.replace("/dashboard");
+            // We use a full location change to the clean dashboard URL
+            // This forces the entire app to re-initialize and see the new token in localStorage
+            window.location.href = "/dashboard";
             return;
         }
 

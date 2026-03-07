@@ -28,7 +28,7 @@ function LoginContent() {
         const error = searchParams.get("error");
         if (token) {
             localStorage.setItem("nexusops_token", token);
-            router.replace("/dashboard");
+            window.location.href = "/dashboard";
         }
         if (error) {
             console.error("GitHub OAuth error:", error);

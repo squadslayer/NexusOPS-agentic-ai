@@ -246,6 +246,47 @@ class AuthService:
         
         except Exception as e:
             logger.error(f"Token generation failed for {user_id}: {str(e)}")
+    def get_user_profile(self, user_id: str) -> Dict[str, Any]:
+        """
+        Fetch full user profile, including GitHub metadata.
+        
+        Args:
+            user_id (str): UUID of the user
+            
+        Returns:
+            Dict: User profile data
+        """
+        try:
+            # 1. Get user record from DynamoDB
+            user = self.user_store.get_user_by_id(user_id)
+            if not user:
+                raise ValueError(f"User not found: {user_id}")
+            
+            # 2. Get GitHub token for the user
+            from bff.services.github_service import github_service
+            token_obj = github_service.token_repo.get_any_token_for_user(user_id)
+            
+            # 3. If token exists, fetch current GitHub profile
+            gh_profile = {}
+            if token_obj:
+                try:
+                    access_token = github_service.token_store.encryption_service.decrypt_token(token_obj.access_token_encrypted)
+                    gh_profile = github_service.oauth_service.get_user_profile(access_token)
+                except Exception as gh_err:
+                    logger.warning(f"Failed to fetch GitHub profile for {user_id}: {gh_err}")
+            
+            # 4. Merge data
+            return {
+                "user_id": user_id,
+                "email": user.get("email"),
+                "login": gh_profile.get("login", user.get("metadata", {}).get("github_username", user_id)),
+                "name": gh_profile.get("name") or user.get("metadata", {}).get("name", "NexusOps User"),
+                "avatar_url": gh_profile.get("avatar_url"),
+                "html_url": gh_profile.get("html_url"),
+                "created_at": user.get("created_at")
+            }
+        except Exception as e:
+            logger.error(f"Error getting user profile for {user_id}: {str(e)}")
             raise
 
 
