@@ -29,7 +29,7 @@ export default function AwsPage() {
     return (
         <PageContainer
             heading="AWS Resources"
-            description="Core AWS services integrated into the NexusOPS governance platform."
+            description="Core AWS services integrated into the NexusOps governance platform."
         >
             <div className="card overflow-hidden p-0">
                 <table className="w-full text-sm">

@@ -65,7 +65,7 @@ export default function UsePage() {
     return (
         <PageContainer
             heading="Use Cases"
-            description="Key governance scenarios NexusOPS is built to address."
+            description="Key governance scenarios NexusOps is built to address."
         >
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {USE_CASES.map(({ tag, title, description, services }) => (

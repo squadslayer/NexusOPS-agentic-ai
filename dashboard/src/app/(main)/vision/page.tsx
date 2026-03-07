@@ -34,7 +34,7 @@ export default function VisionPage() {
     return (
         <PageContainer
             heading="Vision"
-            description="The long-term goals that guide NexusOPS's product direction."
+            description="The long-term goals that guide NexusOps's product direction."
         >
             {/* Vision statement */}
             <blockquote className="border-l-2 border-primary pl-4 py-1 mb-6">
