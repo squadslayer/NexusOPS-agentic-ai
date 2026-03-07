@@ -1,0 +1,204 @@
+2026-03-07T17:48:36.181Z [INFO]: # Build environment configured with Standard build compute type: 8GiB Memory, 4vCPUs, 128GB Disk Space
+2026-03-07T17:48:36.625Z [INFO]: # Cloning repository: git@github.com:squadslayer/NexusOPS-agentic-ai.git
+2026-03-07T17:48:37.796Z [INFO]: 
+2026-03-07T17:48:37.797Z [INFO]: Cloning into 'NexusOPS-agentic-ai'...
+2026-03-07T17:48:37.797Z [INFO]: # Switching to commit: 4761c4580c9d46435e7db63e8d797f01cd16bd23
+2026-03-07T17:48:37.872Z [INFO]: Note: switching to '4761c4580c9d46435e7db63e8d797f01cd16bd23'.
+                                 You are in 'detached HEAD' state. You can look around, make experimental
+                                 changes and commit them, and you can discard any commits you make in this
+                                 state without impacting any branches by switching back to a branch.
+                                 If you want to create a new branch to retain commits you create, you may
+                                 do so (now or later) by using -c with the switch command. Example:
+                                 git switch -c <new-branch-name>
+                                 Or undo this operation with:
+                                 git switch -
+                                 Turn off this advice by setting config variable advice.detachedHead to false
+                                 HEAD is now at 4761c45 fix: improve AuthGuard transition and add diagnostic logging for auth failures
+2026-03-07T17:48:37.962Z [INFO]: Successfully cleaned up Git credentials
+2026-03-07T17:48:37.963Z [INFO]: # Checking for Git submodules at: /codebuild/output/src2632389414/src/NexusOPS-agentic-ai/.gitmodules
+2026-03-07T17:48:37.972Z [INFO]: # Retrieving environment cache...
+2026-03-07T17:48:38.026Z [WARNING]: ! Unable to write cache: {"code":"ERR_BAD_REQUEST","message":"Request failed with status code 404"})}
+2026-03-07T17:48:38.026Z [INFO]: ---- Setting Up SSM Secrets ----
+2026-03-07T17:48:38.026Z [INFO]: SSM params {"Path":"/amplify/d1l1x6okhb8k57/main/","WithDecryption":true}
+2026-03-07T17:48:38.070Z [WARNING]: !Failed to set up process.env.secrets
+2026-03-07T17:48:38.325Z [INFO]: # No package override configuration found.
+2026-03-07T17:48:38.328Z [INFO]: # Retrieving cache...
+2026-03-07T17:48:38.401Z [INFO]: # Extracting cache...
+2026-03-07T17:48:38.402Z [INFO]: # Extraction completed
+2026-03-07T17:48:38.402Z [INFO]: # Retrieved cache
+2026-03-07T17:48:43.606Z [INFO]: ## Starting Backend Build
+                                 ## Checking for associated backend environment...
+                                 ## No backend environment association found, continuing...
+                                 ## Completed Backend Build
+2026-03-07T17:48:43.612Z [INFO]: {"backendDuration": 0}
+                                 ## Starting Frontend Build
+                                 # Starting phase: preBuild
+                                 # Executing command: npm ci --cache .npm --prefer-offline
+2026-03-07T17:49:40.704Z [INFO]: added 430 packages, and audited 431 packages in 52s
+2026-03-07T17:49:40.713Z [INFO]: 153 packages are looking for funding
+                                 run `npm fund` for details
+2026-03-07T17:49:40.903Z [INFO]: 7 vulnerabilities (6 high, 1 critical)
+                                 To address issues that do not require attention, run:
+                                 npm audit fix
+                                 To address all issues (including breaking changes), run:
+                                 npm audit fix --force
+                                 Run `npm audit` for details.
+2026-03-07T17:49:40.945Z [INFO]: # Completed phase: preBuild
+                                 # Starting phase: build
+                                 # Executing command: npm run build
+2026-03-07T17:49:41.139Z [INFO]: > cloud-governance-ui@0.1.0 build
+                                 > next build
+2026-03-07T17:49:41.831Z [INFO]: ⚠ No build cache found. Please configure build caching for faster rebuilds. Read more: https://nextjs.org/docs/messages/no-cache
+2026-03-07T17:49:41.850Z [INFO]: Attention: Next.js now collects completely anonymous telemetry regarding usage.
+2026-03-07T17:49:41.850Z [INFO]: This information is used to shape Next.js' roadmap and prioritize features.
+                                 You can learn more, including how to opt-out if you'd not like to participate in this anonymous program, by visiting the following URL:
+                                 https://nextjs.org/telemetry
+2026-03-07T17:49:41.918Z [INFO]: ▲ Next.js 14.2.5
+2026-03-07T17:49:41.919Z [INFO]: 
+2026-03-07T17:49:41.998Z [INFO]: Creating an optimized production build ...
+2026-03-07T17:49:53.534Z [INFO]: ✓ Compiled successfully
+2026-03-07T17:49:53.541Z [INFO]: Linting and checking validity of types ...
+2026-03-07T17:49:58.209Z [INFO]: Collecting page data ...
+2026-03-07T17:49:59.166Z [INFO]: Generating static pages (0/19) ...
+2026-03-07T17:49:59.368Z [INFO]: Generating static pages (4/19)
+2026-03-07T17:49:59.579Z [WARNING]: ⨯ useSearchParams() should be wrapped in a suspense boundary at page "/executions". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+                                    at o (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:10494)
+                                    at d (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:21353)
+                                    at l (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/587.js:1:774)
+                                    at nj (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:46251)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:47571)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:61546)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64546)
+                                    at nB (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:67538)
+                                    at nD (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:66680)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64853)
+                                    Error occurred prerendering page "/executions". Read more: https://nextjs.org/docs/messages/prerender-error
+2026-03-07T17:49:59.580Z [WARNING]: ⨯ useSearchParams() should be wrapped in a suspense boundary at page "/dashboard". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+                                    at o (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:10494)
+                                    at d (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:21353)
+                                    at l (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/587.js:1:774)
+                                    at nj (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:46251)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:47571)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:61546)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64546)
+                                    at nB (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:67538)
+                                    at nD (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:66680)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64853)
+                                    Error occurred prerendering page "/dashboard". Read more: https://nextjs.org/docs/messages/prerender-error
+2026-03-07T17:49:59.588Z [INFO]: Generating static pages (9/19)
+2026-03-07T17:49:59.617Z [WARNING]: ⨯ useSearchParams() should be wrapped in a suspense boundary at page "/aws". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+                                    at o (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:10494)
+                                    at d (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:21353)
+                                    at l (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/587.js:1:774)
+                                    at nj (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:46251)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:47571)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:61546)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64546)
+                                    at nB (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:67538)
+                                    at nD (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:66680)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64853)
+                                    Error occurred prerendering page "/aws". Read more: https://nextjs.org/docs/messages/prerender-error
+2026-03-07T17:49:59.637Z [WARNING]: ⨯ useSearchParams() should be wrapped in a suspense boundary at page "/problem". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+                                    at o (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:10494)
+                                    at d (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:21353)
+                                    at l (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/587.js:1:774)
+                                    at nj (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:46251)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:47571)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:61546)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64546)
+                                    at nB (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:67538)
+                                    at nD (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:66680)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64853)
+                                    Error occurred prerendering page "/problem". Read more: https://nextjs.org/docs/messages/prerender-error
+                                    ⨯ useSearchParams() should be wrapped in a suspense boundary at page "/costs". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+                                    at o (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:10494)
+                                    at d (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:21353)
+                                    at l (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/587.js:1:774)
+                                    at nj (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:46251)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:47571)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:61546)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64546)
+                                    at nB (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:67538)
+                                    at nD (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:66680)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64853)
+                                    Error occurred prerendering page "/costs". Read more: https://nextjs.org/docs/messages/prerender-error
+                                    ⨯ useSearchParams() should be wrapped in a suspense boundary at page "/repositories". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+                                    at o (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:10494)
+                                    at d (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:21353)
+                                    at l (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/587.js:1:774)
+                                    at nj (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:46251)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:47571)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:61546)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64546)
+                                    at nB (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:67538)
+                                    at nD (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:66680)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64853)
+2026-03-07T17:49:59.639Z [INFO]: Generating static pages (14/19)
+2026-03-07T17:49:59.643Z [WARNING]: Error occurred prerendering page "/repositories". Read more: https://nextjs.org/docs/messages/prerender-error
+2026-03-07T17:49:59.660Z [WARNING]: ⨯ useSearchParams() should be wrapped in a suspense boundary at page "/vision". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+                                    at o (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:10494)
+                                    at d (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:21353)
+                                    at l (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/587.js:1:774)
+                                    at nj (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:46251)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:47571)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:61546)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64546)
+                                    at nB (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:67538)
+                                    at nD (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:66680)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64853)
+                                    Error occurred prerendering page "/vision". Read more: https://nextjs.org/docs/messages/prerender-error
+2026-03-07T17:49:59.672Z [WARNING]: ⨯ useSearchParams() should be wrapped in a suspense boundary at page "/resources". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+                                    at o (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:10494)
+                                    at d (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:21353)
+                                    at l (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/587.js:1:774)
+                                    at nj (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:46251)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:47571)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:61546)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64546)
+                                    at nB (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:67538)
+                                    at nD (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:66680)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64853)
+                                    Error occurred prerendering page "/resources". Read more: https://nextjs.org/docs/messages/prerender-error
+2026-03-07T17:49:59.678Z [WARNING]: ⨯ useSearchParams() should be wrapped in a suspense boundary at page "/use". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+                                    at o (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:10494)
+                                    at d (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:21353)
+                                    at l (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/587.js:1:774)
+                                    at nj (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:46251)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:47571)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:61546)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64546)
+                                    at nB (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:67538)
+                                    at nD (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:66680)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64853)
+                                    Error occurred prerendering page "/use". Read more: https://nextjs.org/docs/messages/prerender-error
+2026-03-07T17:49:59.682Z [WARNING]: ⨯ useSearchParams() should be wrapped in a suspense boundary at page "/compliance". Read more: https://nextjs.org/docs/messages/missing-suspense-with-csr-bailout
+                                    at o (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:10494)
+                                    at d (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/471.js:1:21353)
+                                    at l (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/.next/server/chunks/587.js:1:774)
+                                    at nj (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:46251)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:47571)
+                                    at nM (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:61546)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64546)
+                                    at nB (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:67538)
+                                    at nD (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:66680)
+                                    at nN (/codebuild/output/src2632389414/src/NexusOPS-agentic-ai/dashboard/node_modules/next/dist/compiled/next-server/app-page.runtime.prod.js:12:64853)
+                                    Error occurred prerendering page "/compliance". Read more: https://nextjs.org/docs/messages/prerender-error
+2026-03-07T17:49:59.683Z [INFO]: ✓ Generating static pages (19/19)
+2026-03-07T17:49:59.689Z [WARNING]: 
+2026-03-07T17:49:59.690Z [WARNING]: > Export encountered errors on following paths:
+                                    /(main)/aws/page: /aws
+                                    /(main)/compliance/page: /compliance
+                                    /(main)/costs/page: /costs
+                                    /(main)/dashboard/page: /dashboard
+                                    /(main)/executions/page: /executions
+                                    /(main)/problem/page: /problem
+                                    /(main)/repositories/page: /repositories
+                                    /(main)/resources/page: /resources
+                                    /(main)/use/page: /use
+                                    /(main)/vision/page: /vision
+2026-03-07T17:49:59.711Z [ERROR]: !!! Build failed
+2026-03-07T17:49:59.711Z [INFO]: Please read more about Amplify Hosting's support for SSR frameworks to find if your build failure is related to an unsupported feature: https://docs.aws.amazon.com/amplify/latest/userguide/amplify-ssr-framework-support.html. You may also find this troubleshooting guide useful: https://docs.aws.amazon.com/amplify/latest/userguide/troubleshooting-ssr-deployment.html
+2026-03-07T17:49:59.711Z [ERROR]: !!! Error: Command failed with exit code 1
+2026-03-07T17:49:59.711Z [INFO]: # Starting environment caching...
+2026-03-07T17:49:59.712Z [INFO]: # Environment caching completed
+

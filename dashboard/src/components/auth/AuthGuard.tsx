@@ -14,7 +14,7 @@ import { ShieldCheckIcon } from "@heroicons/react/24/outline";
  * - Picks up ?token= from GitHub OAuth redirect and saves it to localStorage.
  * - If no valid token found, redirects to /login.
  */
-export function AuthGuard({ children }: { children: React.ReactNode }) {
+function AuthGuardContent({ children }: { children: React.ReactNode }) {
     const { isAuthenticated, isLoading } = useGitHubUser();
     const router = useRouter();
     const searchParams = useSearchParams();
@@ -58,9 +58,13 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         return null;
     }
 
+    return <>{children}</>;
+}
+
+export function AuthGuard({ children }: { children: React.ReactNode }) {
     return (
-        <>
-            {children}
-        </>
+        <Suspense fallback={null}>
+            <AuthGuardContent>{children}</AuthGuardContent>
+        </Suspense>
     );
 }
