@@ -9,7 +9,7 @@ export default function ArchitecturePage() {
                     System Architecture
                 </h1>
                 <p className="text-xl text-text-secondary max-w-3xl mx-auto">
-                    A deep dive into how NexusOPS orchestrates state transitions securely across distributed systems.
+                    A deep dive into how NexusOps orchestrates state transitions securely across distributed systems.
                 </p>
             </div>
             <Workflow />

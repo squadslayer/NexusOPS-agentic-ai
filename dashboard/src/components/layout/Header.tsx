@@ -21,7 +21,7 @@ function Breadcrumbs({ pathname }: { pathname: string }) {
 
     return (
         <nav className="flex items-center gap-1 text-sm text-textMuted" aria-label="Breadcrumb">
-            <span className="hover:text-textMain cursor-pointer">NexusOPS</span>
+            <span className="hover:text-textMain cursor-pointer">NexusOps</span>
             {segments.map((seg, i) => {
                 const href = "/" + segments.slice(0, i + 1).join("/");
                 const isLast = i === segments.length - 1;
@@ -42,7 +42,7 @@ function Breadcrumbs({ pathname }: { pathname: string }) {
 
 export function Header() {
     const pathname = usePathname();
-    const pageTitle = ROUTE_LABELS[pathname] ?? "NexusOPS";
+    const pageTitle = ROUTE_LABELS[pathname] ?? "NexusOps";
 
     return (
         <header

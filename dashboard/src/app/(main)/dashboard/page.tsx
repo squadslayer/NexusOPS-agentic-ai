@@ -37,7 +37,7 @@ function ChatPanel({ isOpen, onClose, repos, onExecutionStarted }: { isOpen: boo
         {
             id: "welcome",
             role: "assistant",
-            content: `Welcome to NexusOPS! You have ${repos.length} ${repos.length === 1 ? "repository" : "repositories"} linked. Ask me about your cloud governance, compliance, or repository analysis.`,
+            content: `Welcome to NexusOps! You have ${repos.length} ${repos.length === 1 ? "repository" : "repositories"} linked. Ask me about your cloud governance, compliance, or repository analysis.`,
             timestamp: new Date(),
         },
     ]);
@@ -123,7 +123,7 @@ function ChatPanel({ isOpen, onClose, repos, onExecutionStarted }: { isOpen: boo
             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-surface/90">
                 <div className="flex items-center gap-2">
                     <ChatBubbleLeftRightIcon className="h-5 w-5 text-primary" />
-                    <span className="text-sm font-semibold text-textMain">NexusOPS Assistant</span>
+                    <span className="text-sm font-semibold text-textMain">NexusOps Assistant</span>
                 </div>
                 <button onClick={onClose} className="text-textMuted hover:text-textMain transition-colors">
                     <XMarkIcon className="h-5 w-5" />
@@ -235,7 +235,7 @@ export default function DashboardPage() {
             return;
         }
         const lines = [
-            "NexusOPS — Repository Report",
+            "NexusOps — Repository Report",
             `Generated: ${new Date().toISOString()}`,
             `Total Repositories: ${repos.length}`,
             "",
@@ -285,7 +285,7 @@ export default function DashboardPage() {
                         </h2>
                         <p className="text-sm text-textSub leading-relaxed">
                             Connect a GitHub repository to start monitoring your cloud infrastructure.
-                            NexusOPS will analyze your IaC configurations and provide governance insights.
+                            NexusOps will analyze your IaC configurations and provide governance insights.
                         </p>
                     </div>
                     <Link
@@ -324,7 +324,7 @@ export default function DashboardPage() {
                             Ingesting Repository Context
                         </h2>
                         <p className="text-sm text-textSub leading-relaxed mb-6">
-                            NexusOPS is analyzing your connected repositories to build a governance context.
+                            NexusOps is analyzing your connected repositories to build a governance context.
                             This includes scanning IaC configurations, identifying resources, and mapping policies.
                         </p>
                     </div>
@@ -469,7 +469,7 @@ export default function DashboardPage() {
                 <button
                     onClick={() => setIsChatOpen(true)}
                     className="fixed bottom-6 right-6 w-14 h-14 rounded-full bg-primary text-white shadow-lg shadow-black/50 hover:bg-primary/90 flex items-center justify-center transition-all hover:scale-105 z-50 border border-primary/20"
-                    title="Ask NexusOPS"
+                    title="Ask NexusOps"
                 >
                     <ChatBubbleLeftRightIcon className="h-6 w-6" />
                 </button>
